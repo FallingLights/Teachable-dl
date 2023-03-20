@@ -257,7 +257,7 @@ class TeachableDownloader:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download subtitles from URL')
-    parser.add_argument("--url", help='URL of the course')
+    parser.add_argument("--url", required=True, help='URL of the course')
     parser.add_argument("--email", required=True, help='Email of the account')
     parser.add_argument("--password", required=True, help='Password of the account')
     # parser.add_argument('-o', '--output', help='Output directory for the downloaded subtitle', default='.')
