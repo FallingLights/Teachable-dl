@@ -60,6 +60,8 @@ class TeachableDownloader:
         self.driver.implicitly_wait(30)
         self.driver.get(course_url)
 
+        self.clean_up()
+
     def get_course_title(self, course_url):
         if self.driver.current_url != course_url:
             self.driver.get(course_url)
@@ -253,6 +255,9 @@ class TeachableDownloader:
         )
         with open(mhtml_path, "wb") as f:
             f.write(base64.b64decode(self.driver.page_source))
+
+    def clean_up(self):
+        self.driver.quit()
 
 
 if __name__ == "__main__":
