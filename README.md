@@ -142,10 +142,8 @@ python3 main.py --url <course_url> --email <email> --password <password>
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-    - [ ] Nested Feature
+- [ ] Add support for downloading course materials from new Teachable template
+- [ ] Add support for downloading all courses from a Teachable site
 
 See the [open issues](https://github.com/FallingLights/Teachable-Dl/issues) for a full list of proposed features (and known issues).
 
