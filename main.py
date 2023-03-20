@@ -268,7 +268,9 @@ if __name__ == "__main__":
         downloader.run(args.url, args.email, args.password)
     except KeyboardInterrupt:
         print("Interrupted by user")
+        downloader.driver.quit()
         sys.exit(1)
     except Exception as e:
         print("Error: " + str(e))
+        downloader.driver.quit()
         sys.exit(1)
