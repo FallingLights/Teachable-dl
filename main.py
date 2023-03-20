@@ -61,7 +61,8 @@ class TeachableDownloader:
         self.driver.get(course_url)
 
     def get_course_title(self, course_url):
-        self.driver.get(course_url)
+        if self.driver.current_url != course_url:
+            self.driver.get(course_url)
 
         wrap = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".wrap")))
         heading = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".heading")))
@@ -221,8 +222,6 @@ class TeachableDownloader:
 
     def download_attachments(self, link, title, video_index, output_path):
         video_title = str(video_index) + "-" + title
-        output_path = os.path.join(output_path, video_title)
-        os.makedirs(output_path, exist_ok=True)
 
         # Grab the video attachments type file
         video_attachments = self.driver.find_elements(By.CLASS_NAME, "lecture-attachment-type-file")
@@ -230,6 +229,10 @@ class TeachableDownloader:
 
         if video_attachments:
             video_links = video_attachments[0].find_elements(By.TAG_NAME, "a")
+
+            output_path = os.path.join(output_path, video_title)
+            os.makedirs(output_path, exist_ok=True)
+
             # Get href attribute from the first link
             if video_links:
                 for video_link in video_links:
