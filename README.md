@@ -101,7 +101,7 @@ This is an example of how to list things you need to use the software and how to
     ```
 * Chrome
     ```sh
-        sudo apt install chromium-browser
+    sudo apt install chromium-browser
     ```
 
 ### Installation
