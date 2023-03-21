@@ -192,6 +192,7 @@ Project Link: [https://github.com/FallingLights/Teachable-Dl](https://github.com
 ## Acknowledgments
 
 * [merberich](https://github.com/merberich)
+* [Green0Photon](https://github.com/Green0Photon)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
