@@ -106,20 +106,19 @@ This is an example of how to list things you need to use the software and how to
 
 ### Installation
 
-1. Get a free API Key at [https://example.com](https://example.com)
-2. Clone the repo
+1. Clone the repo
    ```sh
    git clone https://github.com/FallingLights/Teachable-Dl.git
    ```
-3. Set up the environment
+2. Set up the environment
    ```sh
     python3 -m venv env
    ```
-4. Activate the environment
+3. Activate the environment
    ```sh
     source env/bin/activate
    ```
-5. Install the requirements
+4. Install the requirements
    ```sh
     pip install -r requirements.txt
    ```
