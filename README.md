@@ -136,6 +136,7 @@ This is an example of how to list things you need to use the software and how to
 
 Run the program
 ```sh
+source env/bin/activate
 python3 main.py --url <course_url> --email <email> --password <password>
 ```
 
