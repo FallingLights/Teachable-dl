@@ -65,6 +65,9 @@
 
 Teachable-dl is a Python-based downloader for downloading courses from the Teachable platform. It provides a command-line interface for easily downloading course materials such as videos, slides, and other resources, allowing users to access course content offline at their own pace. With Teachable-dl, users can conveniently download and organize all course materials in a single location, enabling easy access and review of course content without the need for an active internet connection.
 
+⭐ `Star` this repository if you find it valuable and worth maintaining.
+
+👁 `Watch` this repository to get notified about new releases, issues, etc.
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
