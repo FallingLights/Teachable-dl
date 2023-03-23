@@ -19,7 +19,7 @@
 <h3 align="center">Teachable-dl</h3>
 
   <p align="center">
-    A downloader for downloading courses from the Teachable platform.
+    A downloader for downloading courses from the Teachable platforms.
     <br />
     <br />
     <a href="https://github.com/FallingLights/Teachable-Dl/issues">Report Bug</a>
