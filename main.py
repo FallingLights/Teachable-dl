@@ -71,17 +71,6 @@ class TeachableDownloader:
         self.driver.implicitly_wait(10)
         self.driver.get(course_url)
 
-    def get_course_title_old(self, course_url):
-        if self.driver.current_url != course_url:
-            self.driver.get(course_url)
-
-        wrap = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".wrap")))
-        heading = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".heading")))
-        course_title = heading.text
-
-        course_title = course_title.replace("\n", "-").replace(" ", "-").replace(":", "-")
-        return course_title
-
     def pick_course_downloader(self, course_url):
         self.driver.get(course_url)
         self.driver.implicitly_wait(10)
@@ -93,7 +82,7 @@ class TeachableDownloader:
             logging.info('Choosing new course format')
             self.download_course(course_url)
         else:
-            print("Not implemented yet!")
+            logging.error("Downloader does not support this course template. Please open an issue on github.")
 
     def download_course(self, course_url):
         print("Detected new course format")
@@ -163,6 +152,17 @@ class TeachableDownloader:
                 idx += 1
 
         self.download_videos_from_links(video_list)
+
+    def get_course_title_old(self, course_url):
+        if self.driver.current_url != course_url:
+            self.driver.get(course_url)
+
+        wrap = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".wrap")))
+        heading = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".heading")))
+        course_title = heading.text
+
+        course_title = course_title.replace("\n", "-").replace(" ", "-").replace(":", "-")
+        return course_title
 
     def download_course_old(self, course_url):
         print("Detected old course format")
