@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import string
 import sys
 from urllib.parse import urljoin
 
@@ -76,13 +77,69 @@ class TeachableDownloader:
         self.driver.implicitly_wait(10)
 
         if self.driver.find_elements(By.ID, "__next"):
-            logging.info('Choosing old course format')
+            logging.info('Choosing __next format')
             self.download_course_old(course_url)
         elif self.driver.find_elements(By.CLASS_NAME, "course-mainbar"):
-            logging.info('Choosing new course format')
+            logging.info('Choosing course-mainbar format')
             self.download_course(course_url)
+        elif self.driver.find_elements(By.CSS_SELECTOR, ".block__curriculum"):
+            logging.info('Choosing .block__curriculum format')
+            self.download_course_block(course_url)
         else:
             logging.error("Downloader does not support this course template. Please open an issue on github.")
+
+    def download_course_block(self, course_url):
+        try:
+            course_title = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".course__title"))
+            ).text
+        except Exception as e:
+            course_title = self.driver.title()
+
+        course_title = course_title.replace("\n", "-").replace(" ", "-").replace(":", "-").replace("/", "-").replace(
+            "|", "")
+        course_path = create_folder(course_title)
+
+        output_file = os.path.join(course_path, "course.html")
+        with open(output_file, 'w+') as f:
+            f.write(self.driver.page_source)
+
+        # Unhide all elements
+        self.driver.execute_script('[...document.querySelectorAll(".hidden")].map(e=>e.classList.remove("hidden"))')
+
+        chapter_idx = 1
+        video_list = []
+        sections = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".block__curriculum__section"))
+        )
+
+        for section in sections:
+            chapter_title = section.find_element(By.CSS_SELECTOR, ".block__curriculum__section__title").text
+            chapter_title = chapter_title.replace("\n", "-").replace(" ", "-").replace(":", "-")
+            chapter_title = ''.join(char for char in chapter_title if char in string.printable)
+            chapter_title = chapter_title = "{:02d}-{}".format(chapter_idx, chapter_title)
+
+            download_path = os.path.join(course_path, chapter_title)
+            os.makedirs(download_path, exist_ok=True)
+
+            chapter_idx += 1
+            idx = 1
+
+            section_items = section.find_elements(By.CSS_SELECTOR, ".block__curriculum__section__list__item__link")
+            for section_item in section_items:
+                lecture_link = section_item.get_attribute("href")
+
+                lecture_title = section_item.find_element(By.CSS_SELECTOR,
+                                                          ".block__curriculum__section__list__item__lecture-name").text
+                lecture_title = lecture_title.replace("\n", "-").replace(" ", "-").replace(":", "-")
+                lecture_title = ''.join(char for char in lecture_title if char in string.printable)
+
+                video_entity = {"link": lecture_link, "title": lecture_title, "idx": idx,
+                                "download_path": download_path}
+                video_list.append(video_entity)
+                idx += 1
+
+        self.download_videos_from_links(video_list)
 
     def download_course(self, course_url):
         print("Detected new course format")
