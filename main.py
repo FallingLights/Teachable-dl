@@ -1,17 +1,26 @@
-import base64
-import os
-import sys
-
-import wget
-from selenium.webdriver.remote.webdriver import By
-import selenium.webdriver.support.expected_conditions as EC  # noqa
-from selenium.webdriver.support.wait import WebDriverWait
-import undetected_chromedriver as uc
-import yt_dlp
-import json
-from urllib.parse import urljoin
-import requests
 import argparse
+import base64
+import json
+import logging
+import os
+import re
+import sys
+from urllib.parse import urljoin
+
+import requests
+import selenium.webdriver.support.expected_conditions as EC  # noqa
+import undetected_chromedriver as uc
+import wget
+import yt_dlp
+from selenium.webdriver.remote.webdriver import By
+from selenium.webdriver.support.wait import WebDriverWait
+
+
+def create_folder(course_title):
+    root_path = os.path.abspath(os.getcwd())
+    course_path = os.path.join(root_path, "courses", course_title)
+    os.makedirs(course_path, exist_ok=True)
+    return course_path
 
 
 class TeachableDownloader:
@@ -36,6 +45,8 @@ class TeachableDownloader:
         except Exception as e:
             print("Could not download course: " + course_url + " cause: " + str(e))
 
+        self.clean_up()
+
     def login(self, course_url, email, password):
         self.driver.get(course_url)
         self.driver.implicitly_wait(20)
@@ -57,12 +68,10 @@ class TeachableDownloader:
 
         commit_element.click()
 
-        self.driver.implicitly_wait(30)
+        self.driver.implicitly_wait(10)
         self.driver.get(course_url)
 
-        self.clean_up()
-
-    def get_course_title(self, course_url):
+    def get_course_title_old(self, course_url):
         if self.driver.current_url != course_url:
             self.driver.get(course_url)
 
@@ -75,19 +84,115 @@ class TeachableDownloader:
 
     def pick_course_downloader(self, course_url):
         self.driver.get(course_url)
-        self.driver.implicitly_wait(20)
+        self.driver.implicitly_wait(10)
 
-        old = self.driver.find_elements(By.ID, "__next")
-        if old:
+        if self.driver.find_elements(By.ID, "__next"):
+            logging.info('Choosing old course format')
             self.download_course_old(course_url)
+        elif self.driver.find_elements(By.CLASS_NAME, "course-mainbar"):
+            logging.info('Choosing new course format')
+            self.download_course(course_url)
         else:
             print("Not implemented yet!")
 
+    def download_course(self, course_url):
+        print("Detected new course format")
+        course_title = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "body > section > div.course-sidebar > h2"))
+        ).text
+        course_title = course_title.replace("\n", "-").replace(" ", "-").replace(":", "-")
+        course_path = create_folder(course_title)
+
+        output_file = os.path.join(course_path, "course.html")
+        with open(output_file, 'w+') as f:
+            f.write(self.driver.page_source)
+
+        # Get course image
+        image_element = self.driver.find_element(By.CLASS_NAME, "course-image")
+
+        if image_element:
+            image_link = image_element.get_attribute("src")
+            image_link_hd = re.sub(r"/resize=.+?/", "/", image_link)
+            # try to download the image using the modified link first
+            response = requests.get(image_link_hd)
+            if response.ok:
+                # save the image to disk
+                image_path = os.path.join(course_path, "course-image.jpg")
+                with open(image_path, "wb") as f:
+                    f.write(response.content)
+                print("Image downloaded successfully.")
+            else:
+                # try to download the image using the original link
+                response = requests.get(image_link)
+                if response.ok:
+                    # save the image to disk
+                    image_path = os.path.join(course_path, "course-image.jpg")
+                    with open(image_path, "wb") as f:
+                        f.write(response.content)
+                    print("Image downloaded successfully.")
+                else:
+                    # print a message indicating that the image download failed
+                    print("Failed to download image.")
+
+        chapter_idx = 1
+        video_list = []
+        sections = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".course-section"))
+        )
+        for section in sections:
+            chapter_title = section.find_element(By.CSS_SELECTOR, ".section-title").text
+            chapter_title = chapter_title.replace("\n", "-").replace(" ", "-").replace(":", "-")
+            chapter_title = chapter_title = "{:02d}-{}".format(chapter_idx, chapter_title)
+
+            download_path = os.path.join(course_path, chapter_title)
+            os.makedirs(download_path, exist_ok=True)
+
+            chapter_idx += 1
+            idx = 1
+
+            section_items = section.find_elements(By.CSS_SELECTOR, ".section-item")
+            for section_item in section_items:
+                lecture_link = section_item.find_element(By.CLASS_NAME, "item").get_attribute("href")
+
+                lecture_title = section_item.find_element(By.CLASS_NAME, "lecture-name").text
+                lecture_title = lecture_title.replace("\n", "-").replace(" ", "-").replace(":", "-")
+
+                video_entity = {"link": lecture_link, "title": lecture_title, "idx": idx,
+                                "download_path": download_path}
+                video_list.append(video_entity)
+                idx += 1
+
+        self.download_videos_from_links(video_list)
+
     def download_course_old(self, course_url):
-        root_path = os.path.abspath(os.getcwd())
-        course_title = self.get_course_title(course_url)
-        course_path = os.path.join(root_path, "courses", course_title)
-        os.makedirs(course_path, exist_ok=True)
+        print("Detected old course format")
+        course_title = self.get_course_title_old(course_url)
+        course_path = create_folder(course_title)
+
+        # Download course image
+        image_element = self.driver.find_element(By.XPATH, "//*[@id=\"__next\"]/div/div/div[2]/div/div[1]/img")
+
+        output_file = os.path.join(course_path, "course.html")
+        with open(output_file, 'w+') as f:
+            f.write(self.driver.page_source)
+
+        if image_element:
+            image_link = image_element.get_attribute("src")
+            # Save image
+            image_path = os.path.join(course_path, "course-image.jpg")
+            # send a GET request to the image link
+            try:
+                response = requests.get(image_link)
+                # write the image data to a file
+                with open(image_path, "wb") as f:
+                    f.write(response.content)
+                # print a message indicating that the image was downloaded
+                print("Image downloaded successfully.")
+            except Exception as e:
+                # print a message indicating that the image download failed
+                print("Failed to download image:" + str(e))
+        else:
+            print("Image not found.")
 
         chapter_idx = 1
         video_list = []
@@ -96,14 +201,13 @@ class TeachableDownloader:
             bars = slim_section.find_elements(By.CSS_SELECTOR, ".bar")
             chapter_title = slim_section.find_element(By.CSS_SELECTOR, ".heading").text
             chapter_title = chapter_title.replace("\n", "-").replace(" ", "-").replace(":", "-")
-            chapter_title = str(chapter_idx) + "-" + chapter_title
+            chapter_title = "{:02d}-{}".format(chapter_idx, chapter_title)
             print(chapter_title)
             download_path = os.path.join(course_path, chapter_title)
             os.makedirs(download_path, exist_ok=True)
             chapter_idx += 1
             idx = 1
             for bar in bars:
-
                 video = bar.find_element(By.CSS_SELECTOR, ".text")
                 link = video.get_attribute("href")
                 title = video.text
@@ -113,9 +217,14 @@ class TeachableDownloader:
                 video_list.append(video_entity)
                 idx += 1
 
+        self.download_videos_from_links(video_list)
+
+    def download_videos_from_links(self, video_list):
         for video in video_list:
             self.driver.get(video["link"])
             self.driver.implicitly_wait(10)
+
+            self.save_webpage_as_html(video["title"], video["idx"], video["download_path"])
 
             try:
                 self.download_attachments(video["link"], video["title"], video["idx"], video["download_path"])
@@ -157,8 +266,8 @@ class TeachableDownloader:
                 },
             ],
             "http_headers": self.headers,
-            "concurrentfragments": 10,
-            "outtmpl": os.path.join(output_path, str(video_index) + "-" + title + ".mp4"),
+            "concurrentfragments": 15,
+            "outtmpl": os.path.join(output_path, "{:02d}-{}.mp4".format(video_index, title)),
             "ffmpeg_location": "C:\\Users\\FallingLights\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-6.0-full_build\\bin\\ffmpeg.exe",
             "verbose": self.verbose,
         }
@@ -168,7 +277,7 @@ class TeachableDownloader:
         except Exception as e:
             print("Could not download video: " + title + " cause: " + str(e))
 
-    # This function is needed because yt-dlp subtitile downloader is not working
+    # This function is needed because yt-dlp subtitle downloader is not working
     def download_subtitle(self, link, title, video_index, output_path):
         ydl_opts = {
             "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
@@ -205,6 +314,7 @@ class TeachableDownloader:
             subtitle_links[lang] = {"url": sub_info["url"], "ext": sub_info["ext"]}
 
         # Print the subtitle links and language names
+        req = None
         for lang, sub in subtitle_links.items():
             base_url = sub["url"]
             try:
@@ -213,7 +323,7 @@ class TeachableDownloader:
                 print("Could not download subtitle: " + title + " cause: " + str(e))
             relative_path = req.text.split("\n")[5]
             full_url = urljoin(base_url, relative_path)
-            subtitle_filename = str(video_index) + "-" + title + "." + lang + "." + sub["ext"]
+            subtitle_filename = "{:02d}-{}.{}.{}".format(video_index, title, lang, sub["ext"])
             file_path = os.path.join(output_path, subtitle_filename)
             try:
                 response = requests.get(full_url, headers=self.headers)
@@ -223,7 +333,7 @@ class TeachableDownloader:
                 print("Could not download subtitle: " + title + " cause: " + str(e))
 
     def download_attachments(self, link, title, video_index, output_path):
-        video_title = str(video_index) + "-" + title
+        video_title = "{:02d}-{}".format(video_index, title)
 
         # Grab the video attachments type file
         video_attachments = self.driver.find_elements(By.CLASS_NAME, "lecture-attachment-type-file")
@@ -246,15 +356,14 @@ class TeachableDownloader:
         else:
             print("No attachments found for video: " + title)
 
-    def save_webpage(self, link, title, output_path):
-        # Save the webpage as mhtml
-        mhtml_filename = title + ".mhtml"
-        mhtml_path = os.path.join(output_path, mhtml_filename)
-        self.driver.execute_cdp_cmd(
-            "Page.captureSnapshot", {"format": "mhtml", "quality": 100}
-        )
-        with open(mhtml_path, "wb") as f:
-            f.write(base64.b64decode(self.driver.page_source))
+    def save_webpage_as_html(self, title, video_index, output_path):
+        output_file = os.path.join(output_path, "{:02d}-{}.html".format(video_index, title))
+        with open(output_file, 'w+') as f:
+            f.write(self.driver.page_source)
+
+    def save_webpage_as_pdf(self, title, video_index, output_path):
+        output_file_pdf = os.path.join(output_path, "{:02d}-{}.pdf".format(video_index, title))
+        self.driver.save_print_page(output_file_pdf)
 
     def clean_up(self):
         self.driver.quit()
@@ -273,9 +382,9 @@ if __name__ == "__main__":
         downloader.run(args.url, args.email, args.password)
     except KeyboardInterrupt:
         print("Interrupted by user")
-        downloader.driver.quit()
+        downloader.clean_up()
         sys.exit(1)
     except Exception as e:
         print("Error: " + str(e))
-        downloader.driver.quit()
+        downloader.clean_up()
         sys.exit(1)
