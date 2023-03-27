@@ -330,11 +330,11 @@ class TeachableDownloader:
 
             try:
                 WebDriverWait(self.driver, timeout=10).until(
-                EC.frame_to_be_available_and_switch_to_it(
-                    (By.XPATH, "//iframe[starts-with(@data-testid, 'embed-player')]"))
+                    EC.frame_to_be_available_and_switch_to_it(
+                        (By.XPATH, "//iframe[starts-with(@data-testid, 'embed-player')]"))
                 )
             except Exception as e:
-                print("Could not switch to iframe: " + video["title"] + " cause: " + str(e))
+                print("Could not switch to iframe: " + video["title"])
                 continue
 
             script_text = self.driver.find_element(By.ID, "__NEXT_DATA__")
@@ -353,6 +353,7 @@ class TeachableDownloader:
                 continue
 
             print("Downloaded: " + video["title"])
+        return
 
     def download_video(self, link, title, video_index, output_path):
         ydl_opts = {
