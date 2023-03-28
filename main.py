@@ -519,6 +519,7 @@ if __name__ == "__main__":
     try:
         downloader.run(args.url, args.email, args.password)
         downloader.clean_up()
+        sys.exit(0)
     except KeyboardInterrupt:
         logging.error("Interrupted by user")
         downloader.clean_up()
