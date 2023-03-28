@@ -372,7 +372,6 @@ class TeachableDownloader:
             "http_headers": self.headers,
             "concurrentfragments": 15,
             "outtmpl": os.path.join(output_path, "{:02d}-{}.mp4".format(video_index, title)),
-            "ffmpeg_location": "C:\\Users\\FallingLights\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-6.0-full_build\\bin\\ffmpeg.exe",
             "verbose": self.verbose,
         }
         try:
@@ -401,8 +400,6 @@ class TeachableDownloader:
             "concurrentfragments": 10,
             "writesubtitles": True,
             "outtmpl": os.path.join(output_path, title),
-            "ffmpeg_location": "C:\\Users\\FallingLights\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan"
-                               ".FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-6.0-full_build\\bin\\ffmpeg.exe",
             "verbose": self.verbose,
         }
 
