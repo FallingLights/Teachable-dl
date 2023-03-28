@@ -49,7 +49,8 @@ def remove_emojis(data):
 
 
 def clean_string(data):
-    return remove_emojis(data).replace("\n", "-").replace(" ", "-").replace(":", "-") \
+    data = data.encode('ascii', 'ignore').decode('ascii')
+    return data.replace("\n", "-").replace(" ", "-").replace(":", "-") \
         .replace("/", "-").replace("|", "")
 
 
@@ -123,7 +124,7 @@ class TeachableDownloader:
                 EC.presence_of_element_located((By.CSS_SELECTOR, ".course__title"))
             ).text
         except Exception as e:
-            course_title = self.driver.title()
+            course_title = self.driver.title
 
         course_title = clean_string(course_title)
         course_path = create_folder(course_title)
@@ -293,7 +294,7 @@ class TeachableDownloader:
             print(chapter_title)
 
             not_available_element = slim_section.find_elements(By.CSS_SELECTOR, ".drip-tag")
-            if not_available_element:
+            if not_available_element: # Not the best way to check if the chapter is available
                 print("Chapter not available yet. Skipping...")
                 continue
 
