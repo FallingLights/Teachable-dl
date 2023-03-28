@@ -118,6 +118,7 @@ class TeachableDownloader:
             logging.error("Downloader does not support this course template. Please open an issue on github.")
 
     def download_course_block(self, course_url):
+        print("Detected block course format")
         try:
             course_title = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, ".course__title"))
@@ -249,7 +250,7 @@ class TeachableDownloader:
         return course_title
 
     def download_course_next(self, course_url):
-        print("Detected old course format")
+        print("Detected next course format")
         course_title = self.get_course_title_next(course_url)
         course_path = create_folder(course_title)
 
