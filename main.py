@@ -301,7 +301,7 @@ class TeachableDownloader:
                 logging.info("Image downloaded successfully.")
             except Exception as e:
                 # print a message indicating that the image download failed
-                logging.info("Failed to download image:" + str(e))
+                logging.warning("Failed to download image:" + str(e))
         else:
             logging.warning("Image not found.")
 
