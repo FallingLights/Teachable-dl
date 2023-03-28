@@ -357,7 +357,7 @@ class TeachableDownloader:
                         (By.XPATH, "//iframe[starts-with(@data-testid, 'embed-player')]"))
                 )
             except Exception as e:
-                logging.warning("Could not find video: " + video["title"] + " cause: " + str(e))
+                logging.warning("Could not find video: " + video["title"])
                 continue
 
             script_text = self.driver.find_element(By.ID, "__NEXT_DATA__")
