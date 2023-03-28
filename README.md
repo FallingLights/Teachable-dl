@@ -90,6 +90,7 @@ To get the program up and running follow these simple steps.
 ### Prerequisites
 
 This is an example of how to list things you need to use the software and how to install them.
+(You can also run this script on a windows machine)
 * yt-dlp
     ```sh
   python3 -m pip install -U yt-dlp
