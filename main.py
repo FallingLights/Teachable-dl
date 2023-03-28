@@ -77,8 +77,6 @@ class TeachableDownloader:
         except Exception as e:
             logging.error("Could not download course: " + course_url + " cause: " + str(e))
 
-        self.clean_up()
-
     def login(self, course_url, email, password):
         logging.info("Logging in")
         self.driver.get(course_url)
@@ -520,6 +518,7 @@ if __name__ == "__main__":
     downloader = TeachableDownloader()
     try:
         downloader.run(args.url, args.email, args.password)
+        downloader.clean_up()
     except KeyboardInterrupt:
         logging.error("Interrupted by user")
         downloader.clean_up()
