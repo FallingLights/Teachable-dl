@@ -50,7 +50,7 @@ def remove_emojis(data):
 
 def clean_string(data):
     data = data.encode('ascii', 'ignore').decode('ascii')
-    return data.replace("\n", "-").replace(" ", "-").replace(":", "-") \
+    return remove_emojis(data).replace("\n", "-").replace(" ", "-").replace(":", "-") \
         .replace("/", "-").replace("|", "")
 
 
@@ -170,7 +170,7 @@ class TeachableDownloader:
         self.download_videos_from_links(video_list)
 
     def download_course_mainbar(self, course_url):
-        print("Detected new course format")
+        print("Detected _mainbar course format")
         course_title = WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "body > section > div.course-sidebar > h2"))
         ).text
@@ -182,10 +182,10 @@ class TeachableDownloader:
             f.write(self.driver.page_source)
 
         # Get course image
-        image_element = self.driver.find_element(By.CLASS_NAME, "course-image")
+        image_element = self.driver.find_elements(By.CLASS_NAME, "course-image")
 
         if image_element:
-            image_link = image_element.get_attribute("src")
+            image_link = image_element[0].get_attribute("src")
             image_link_hd = re.sub(r"/resize=.+?/", "/", image_link)
             # try to download the image using the modified link first
             response = requests.get(image_link_hd)
