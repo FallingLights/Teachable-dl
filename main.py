@@ -295,7 +295,7 @@ class TeachableDownloader:
             try:
                 response = requests.get(image_link)
                 # write the image data to a file
-                with open(image_path, "wb", encoding='utf-8') as f:
+                with open(image_path, "wb") as f:
                     f.write(response.content)
                 # print a message indicating that the image was downloaded
                 logging.info("Image downloaded successfully.")
