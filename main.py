@@ -55,14 +55,14 @@ def clean_string(data):
 
 
 class TeachableDownloader:
-    def __init__(self):
+    def __init__(self, verbose_arg=False, complete_lecture_arg=False):
         self.chrome_options = uc.ChromeOptions()
         self.driver = uc.Chrome(options=self.chrome_options)
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
             "Origin": "https://player.hotmart.com"
         }
-        self.verbose = False
+        self.verbose = verbose_arg
 
     def run(self, course_url, email, password):
         logging.info("Starting download of course: " + course_url)
@@ -505,17 +505,18 @@ if __name__ == "__main__":
                         help='Increase verbosity level (repeat for more verbosity)')
     # parser.add_argument('-o', '--output', help='Output directory for the downloaded subtitle', default='.')
     args = parser.parse_args()
-
+    verbose = False
     if args.verbose == 0:
         log_level = logging.WARNING
     elif args.verbose == 1:
         log_level = logging.INFO
     else:
+        verbose = True
         log_level = logging.DEBUG
 
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
 
-    downloader = TeachableDownloader()
+    downloader = TeachableDownloader(verbose_arg=verbose)
     try:
         downloader.run(args.url, args.email, args.password)
         downloader.clean_up()
