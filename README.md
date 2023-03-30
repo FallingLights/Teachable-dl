@@ -151,9 +151,6 @@ python main.py --help
 <!-- ROADMAP -->
 ## Roadmap
 
-- [x] Add support for downloading course materials from new Teachable template
-- [ ] Add support for downloading all courses from a Teachable site
-
 See the [open issues](https://github.com/FallingLights/Teachable-Dl/issues) for a full list of proposed features (and known issues).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
