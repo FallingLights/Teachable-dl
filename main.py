@@ -5,6 +5,7 @@ import os
 import re
 import string
 import sys
+import time
 from urllib.parse import urljoin
 
 import requests
@@ -63,6 +64,7 @@ class TeachableDownloader:
             "Origin": "https://player.hotmart.com"
         }
         self.verbose = verbose_arg
+        self._complete_lecture = complete_lecture_arg
 
     def run(self, course_url, email, password):
         logging.info("Starting download of course: " + course_url)
@@ -80,7 +82,7 @@ class TeachableDownloader:
     def login(self, course_url, email, password):
         logging.info("Logging in")
         self.driver.get(course_url)
-        self.driver.implicitly_wait(20)
+        self.driver.implicitly_wait(30)
 
         login_element = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.LINK_TEXT, "Login")))
         login_element.click()
@@ -99,13 +101,17 @@ class TeachableDownloader:
 
         commit_element.click()
 
-        self.driver.implicitly_wait(10)
+        self.driver.implicitly_wait(30)
         logging.info("Logged in, switching to course page")
+        time.sleep(3)
         self.driver.get(course_url)
 
     def pick_course_downloader(self, course_url):
-        self.driver.get(course_url)
-        self.driver.implicitly_wait(10)
+        # Check if we are already on the course page
+        if not self.driver.current_url == course_url:
+            logging.info("Switching to course page")
+            self.driver.get(course_url)
+        self.driver.implicitly_wait(30)
         logging.info("Picking course downloader")
         if self.driver.find_elements(By.ID, "__next"):
             logging.info('Choosing __next format')
@@ -338,20 +344,33 @@ class TeachableDownloader:
 
     def download_videos_from_links(self, video_list):
         for video in video_list:
-            self.driver.get(video["link"])
-            self.driver.implicitly_wait(10)
-            logging.info("Downloading video: " + video["title"])
+            # Check if we are already on the video page
+            # Sleep for 3 seconds to make sure the page is loaded
+            if self.driver.current_url != video["link"]:
+                logging.info("Navigating to lecture: " + video["title"])
+                self.driver.get(video["link"])
+                self.driver.implicitly_wait(30)
+            logging.info("Downloading lecture: " + video["title"])
+
+            # Disable autoplay
+            logging.info("Disabling autoplay")
+            self.driver.execute_script('var checkbox = document.getElementById("custom-toggle-autoplay");'
+                                       'if (checkbox.checked) {checkbox.click();}')
+
             try:
+                logging.info("Saving html")
                 self.save_webpage_as_html(video["title"], video["idx"], video["download_path"])
             except Exception as e:
                 logging.error("Could not save html: " + video["title"] + " cause: " + str(e), exc_info=self.verbose)
 
             try:
+                logging.info("Downloading attachments")
                 self.download_attachments(video["link"], video["title"], video["idx"], video["download_path"])
             except Exception as e:
                 logging.warning("Could not download attachments: " + video["title"] + " cause: " + str(e))
 
             try:
+                logging.info("Switching to video frame")
                 WebDriverWait(self.driver, timeout=10).until(
                     EC.frame_to_be_available_and_switch_to_it(
                         (By.XPATH, "//iframe[starts-with(@data-testid, 'embed-player')]"))
@@ -365,18 +384,38 @@ class TeachableDownloader:
             link = json_text["props"]["pageProps"]["applicationData"]["mediaAssets"][0]["urlEncrypted"]
 
             try:
+                logging.info("Downloading subtitle")
                 self.download_subtitle(link, video["title"], video["idx"], video["download_path"])
             except Exception as e:
                 logging.warning("Could not download subtitle: " + video["title"] + " cause: " + str(e))
 
             try:
+                logging.info("Downloading video")
                 self.download_video(link, video["title"], video["idx"], video["download_path"])
             except Exception as e:
                 logging.warning("Could not download video: " + video["title"] + " cause: " + str(e))
                 continue
 
             logging.info("Downloaded: " + video["title"])
+
+            if self._complete_lecture:
+                try:
+                    logging.info("Completing lecture")
+                    self.complete_lecture()
+                except Exception as e:
+                    logging.warning("Could not complete lecture: " + video["title"] + " cause: " + str(e))
         return
+
+    def complete_lecture(self):
+        # Complete lecture
+
+        self.driver.switch_to.default_content()
+        complete_button = self.driver.find_element(By.ID, "lecture_complete_button")
+        if complete_button:
+            logging.info("Found complete button")
+            complete_button.click()
+            logging.info("Completed lecture")
+            time.sleep(3)
 
     def download_video(self, link, title, video_index, output_path):
         ydl_opts = {
@@ -503,6 +542,7 @@ if __name__ == "__main__":
     parser.add_argument("--password", required=True, help='Password of the account')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase verbosity level (repeat for more verbosity)')
+    parser.add_argument('--complete-lecture', action='store_true', default=False, help='Complete the lecture after downloading')
     # parser.add_argument('-o', '--output', help='Output directory for the downloaded subtitle', default='.')
     args = parser.parse_args()
     verbose = False
@@ -516,7 +556,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
 
-    downloader = TeachableDownloader(verbose_arg=verbose)
+    downloader = TeachableDownloader(verbose_arg=verbose, complete_lecture_arg=args.complete_lecture)
     try:
         downloader.run(args.url, args.email, args.password)
         downloader.clean_up()
