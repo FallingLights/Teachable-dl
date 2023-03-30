@@ -141,6 +141,11 @@ source env/bin/activate
 python3 main.py --url <course_url> --email <email> --password <password>
 ```
 
+To see all the options
+```shell
+python main.py --help
+```
+
 
 
 <!-- ROADMAP -->
