@@ -92,41 +92,44 @@ To get the program up and running follow these simple steps.
 This is an example of how to list things you need to use the software and how to install them.
 (You can also run this script on a windows machine)
 * yt-dlp
-    ```sh
-  python3 -m pip install -U yt-dlp
-    ```
+```sh
+python3 -m pip install -U yt-dlp
+```
 * ffmpeg
-    ```sh
-    sudo apt install ffmpeg
-    ```
+```sh
+sudo apt install ffmpeg
+```
 * wget
-    ```sh
-    sudo apt install wget
-    ```
+```sh
+sudo apt install wget
+```
 * Chrome
-    ```sh
-    sudo apt install chromium-browser
-    ```
+```sh
+sudo apt install chromium-browser
+```
 
 ### Installation
 
 1. Clone the repo
-   ```sh
-   git clone https://github.com/FallingLights/Teachable-Dl.git
-   ```
-2. Set up the environment
-   ```sh
-    python3 -m venv env
-   ```
-3. Activate the environment
-   ```sh
-    source env/bin/activate
-   ```
-4. Install the requirements
-   ```sh
-    pip install -r requirements.txt
-   ```
-
+```sh
+git clone https://github.com/FallingLights/Teachable-Dl.git
+```
+2. Enter to the project
+```sh
+cd Teachable-Dl
+```
+3. Set up the environment
+```sh
+python3 -m venv env
+```
+4. Activate the environment
+```sh
+source env/bin/activate
+```
+5. Install the requirements
+```sh
+pip install -r requirements.txt
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
