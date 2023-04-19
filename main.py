@@ -54,6 +54,15 @@ def clean_string(data):
     return remove_emojis(data).replace("\n", "-").replace(" ", "-").replace(":", "-") \
         .replace("/", "-").replace("|", "")
 
+def truncate_title_to_fit_file_name(title, max_file_name_length=255):
+    # the file name length should not be too long
+    # truncate the title to accomodate the max used file extension length and lecture index prefix
+    max_title_length = max_file_name_length - len(".mp4.part-Frag0000.part") - 3
+    if len(title) > max_title_length:
+        turncated_title = title[:max_title_length]
+        logging.warning("Truncating title: " + turncated_title)
+        return turncated_title
+    return title
 
 class TeachableDownloader:
     def __init__(self, verbose_arg=False, complete_lecture_arg=False):
@@ -179,7 +188,9 @@ class TeachableDownloader:
                 lecture_title = ''.join(char for char in lecture_title if char in string.printable)
                 logging.info("Found lecture: " + lecture_title)
 
-                video_entity = {"link": lecture_link, "title": lecture_title, "idx": idx,
+                truncated_lecture_title = truncate_title_to_fit_file_name(lecture_title)
+
+                video_entity = {"link": lecture_link, "title": truncated_lecture_title, "idx": idx,
                                 "download_path": download_path}
                 video_list.append(video_entity)
                 idx += 1
@@ -257,7 +268,9 @@ class TeachableDownloader:
                 lecture_title = clean_string(lecture_title)
                 logging.info("Found lecture: " + lecture_title)
 
-                video_entity = {"link": lecture_link, "title": lecture_title, "idx": idx,
+                truncated_lecture_title = truncate_title_to_fit_file_name(lecture_title)
+
+                video_entity = {"link": lecture_link, "title": truncated_lecture_title, "idx": idx,
                                 "download_path": download_path}
                 video_list.append(video_entity)
                 idx += 1
@@ -336,7 +349,8 @@ class TeachableDownloader:
                 # Remove new line characters from the title and replace spaces with -
                 title = clean_string(title)
                 logging.info("Found lecture: " + title)
-                video_entity = {"link": link, "title": title, "idx": idx, "download_path": download_path}
+                truncated_title = truncate_title_to_fit_file_name(title)
+                video_entity = {"link": link, "title": truncated_title, "idx": idx, "download_path": download_path}
                 video_list.append(video_entity)
                 idx += 1
 
