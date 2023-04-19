@@ -492,22 +492,25 @@ class TeachableDownloader:
         # Print the subtitle links and language names
         req = None
         for lang, sub in subtitle_links.items():
-            base_url = sub["url"]
-            try:
-                req = requests.get(sub["url"], headers=self.headers)
-            except Exception as e:
-                logging.warning("Could not download subtitle: " + title + " cause: " + str(e))
-            relative_path = req.text.split("\n")[5]
-            full_url = urljoin(base_url, relative_path)
             subtitle_filename = "{:02d}-{}.{}.{}".format(video_index, title, lang, sub["ext"])
             file_path = os.path.join(output_path, subtitle_filename)
-            try:
-                response = requests.get(full_url, headers=self.headers)
-                with open(file_path, "wb") as f:
-                    f.write(response.content)
-            except Exception as e:
-                logging.warning("Could not download subtitle: " + title + " cause: " + str(e))
-            logging.info("Downloaded subtitle: " + subtitle_filename)
+            if os.path.isfile(file_path):
+                logging.info("Skipping existing subtitle: " + subtitle_filename)
+            else:
+                base_url = sub["url"]
+                try:
+                    req = requests.get(sub["url"], headers=self.headers)
+                except Exception as e:
+                    logging.warning("Could not download subtitle: " + title + " cause: " + str(e))
+                relative_path = req.text.split("\n")[5]
+                full_url = urljoin(base_url, relative_path)
+                try:
+                    response = requests.get(full_url, headers=self.headers)
+                    with open(file_path, "wb") as f:
+                        f.write(response.content)
+                except Exception as e:
+                    logging.warning("Could not download subtitle: " + title + " cause: " + str(e))
+                logging.info("Downloaded subtitle: " + subtitle_filename)
 
     def download_attachments(self, link, title, video_index, output_path):
         video_title = "{:02d}-{}".format(video_index, title)
