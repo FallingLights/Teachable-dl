@@ -54,6 +54,7 @@ def clean_string(data):
     return remove_emojis(data).replace("\n", "-").replace(" ", "-").replace(":", "-") \
         .replace("/", "-").replace("|", "")
 
+
 def truncate_title_to_fit_file_name(title, max_file_name_length=255):
     # the file name length should not be too long
     # truncate the title to accomodate the max used file extension length and lecture index prefix
@@ -63,6 +64,7 @@ def truncate_title_to_fit_file_name(title, max_file_name_length=255):
         logging.warning("Truncating title: " + turncated_title)
         return turncated_title
     return title
+
 
 class TeachableDownloader:
     def __init__(self, verbose_arg=False, complete_lecture_arg=False):
@@ -559,7 +561,8 @@ if __name__ == "__main__":
     parser.add_argument("--password", required=True, help='Password of the account')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase verbosity level (repeat for more verbosity)')
-    parser.add_argument('--complete-lecture', action='store_true', default=False, help='Complete the lecture after downloading')
+    parser.add_argument('--complete-lecture', action='store_true', default=False,
+                        help='Complete the lecture after downloading')
     # parser.add_argument('-o', '--output', help='Output directory for the downloaded subtitle', default='.')
     args = parser.parse_args()
     verbose = False
