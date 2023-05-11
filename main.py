@@ -13,6 +13,7 @@ import selenium.webdriver.support.expected_conditions as EC  # noqa
 import undetected_chromedriver as uc
 import wget
 import yt_dlp
+from selenium.common import TimeoutException
 from selenium.webdriver.remote.webdriver import By
 from selenium.webdriver.support.wait import WebDriverWait
 
@@ -77,8 +78,18 @@ class TeachableDownloader:
         self.verbose = verbose_arg
         self._complete_lecture = complete_lecture_arg
 
-    def run(self, course_url, email, password):
+    def run(self, course_url, email, password, login_url):
         logging.info("Starting download of course: " + course_url)
+
+        # Check if login_url is not set
+        if login_url is None:
+            try:
+                self.find_login(course_url, email, password)
+            except Exception as e:
+                logging.error("Could not find login: " + str(e), exc_info=self.verbose)
+        else:
+            self.driver.get(login_url)
+
         try:
             self.login(course_url, email, password)
         except Exception as e:
@@ -90,13 +101,19 @@ class TeachableDownloader:
         except Exception as e:
             logging.error("Could not download course: " + course_url + " cause: " + str(e))
 
-    def login(self, course_url, email, password):
-        logging.info("Logging in")
+    def find_login(self, course_url, email, password):
+        logging.info("Trying to find login")
         self.driver.get(course_url)
         self.driver.implicitly_wait(30)
 
         login_element = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.LINK_TEXT, "Login")))
         login_element.click()
+
+    def login(self, course_url, email, password):
+        logging.info("Logging in")
+
+        WebDriverWait(self.driver, timeout=15).until(
+            EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
         email_element = WebDriverWait(self.driver, 60).until(EC.presence_of_element_located((By.ID, "email")))
         password_element = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
@@ -122,7 +139,10 @@ class TeachableDownloader:
         if not self.driver.current_url == course_url:
             logging.info("Switching to course page")
             self.driver.get(course_url)
-        self.driver.implicitly_wait(30)
+
+        WebDriverWait(self.driver, timeout=15).until(
+            EC.presence_of_element_located((By.TAG_NAME, 'body')))
+
         logging.info("Picking course downloader")
         if self.driver.find_elements(By.ID, "__next"):
             logging.info('Choosing __next format')
@@ -291,6 +311,7 @@ class TeachableDownloader:
         return course_title
 
     def download_course_next(self, course_url):
+        self.driver.implicitly_wait(2)
         logging.info("Detected next course format")
         course_title = self.get_course_title_next(course_url)
         logging.info("Found course title: " + course_title)
@@ -335,10 +356,14 @@ class TeachableDownloader:
             chapter_title = "{:02d}-{}".format(chapter_idx, chapter_title)
             logging.info("Found chapter: " + chapter_title)
 
-            not_available_element = slim_section.find_elements(By.CSS_SELECTOR, ".drip-tag")
-            if not_available_element:  # Not the best way to check if the chapter is available
+            try:
+                not_available_element = WebDriverWait(slim_section, 0.1).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, ".drip-tag")))
                 logging.warning('Chapter "%s" not available, skipping', chapter_title)
                 continue
+            except TimeoutException:
+                logging.info("Chapter is available")
+                pass  # Element wasn't found so the chapter is available
 
             download_path = os.path.join(course_path, chapter_title)
             os.makedirs(download_path, exist_ok=True)
@@ -360,15 +385,12 @@ class TeachableDownloader:
 
     def download_videos_from_links(self, video_list):
         for video in video_list:
-            # Check if we are already on the video page
-            # Sleep for 3 seconds to make sure the page is loaded
             if self.driver.current_url != video["link"]:
                 logging.info("Navigating to lecture: " + video["title"])
                 self.driver.get(video["link"])
                 self.driver.implicitly_wait(30)
             logging.info("Downloading lecture: " + video["title"])
 
-            # Disable autoplay
             logging.info("Disabling autoplay")
             self.driver.execute_script('var checkbox = document.getElementById("custom-toggle-autoplay");'
                                        'if (checkbox.checked) {checkbox.click();}')
@@ -385,32 +407,37 @@ class TeachableDownloader:
             except Exception as e:
                 logging.warning("Could not download attachments: " + video["title"] + " cause: " + str(e))
 
-            try:
-                logging.info("Switching to video frame")
-                WebDriverWait(self.driver, timeout=10).until(
-                    EC.frame_to_be_available_and_switch_to_it(
-                        (By.XPATH, "//iframe[starts-with(@data-testid, 'embed-player')]"))
-                )
-            except Exception as e:
-                logging.warning("Could not find video: " + video["title"])
-                continue
+            video_iframes = self.driver.find_elements(By.XPATH, "//iframe[starts-with(@data-testid, 'embed-player')]")
 
-            script_text = self.driver.find_element(By.ID, "__NEXT_DATA__")
-            json_text = json.loads(script_text.get_attribute("innerHTML"))
-            link = json_text["props"]["pageProps"]["applicationData"]["mediaAssets"][0]["urlEncrypted"]
+            for i, iframe in enumerate(video_iframes):
+                try:
+                    logging.info("Switching to video frame")
+                    self.driver.switch_to.frame(iframe)
 
-            try:
-                logging.info("Downloading subtitle")
-                self.download_subtitle(link, video["title"], video["idx"], video["download_path"])
-            except Exception as e:
-                logging.warning("Could not download subtitle: " + video["title"] + " cause: " + str(e))
+                    script_text = self.driver.find_element(By.ID, "__NEXT_DATA__")
+                    json_text = json.loads(script_text.get_attribute("innerHTML"))
+                    link = json_text["props"]["pageProps"]["applicationData"]["mediaAssets"][0]["urlEncrypted"]
 
-            try:
-                logging.info("Downloading video")
-                self.download_video(link, video["title"], video["idx"], video["download_path"])
-            except Exception as e:
-                logging.warning("Could not download video: " + video["title"] + " cause: " + str(e))
-                continue
+                    # Append -n to the video title if there are multiple iframes
+                    video_title = video["title"] + ("-" + str(i + 1) if len(video_iframes) > 1 else "")
+
+                    try:
+                        logging.info("Downloading subtitle")
+                        self.download_subtitle(link, video_title, video["idx"], video["download_path"])
+                    except Exception as e:
+                        logging.warning("Could not download subtitle: " + video_title + " cause: " + str(e))
+
+                    try:
+                        logging.info("Downloading video")
+                        self.download_video(link, video_title, video["idx"], video["download_path"])
+                    except Exception as e:
+                        logging.warning("Could not download video: " + video_title + " cause: " + str(e))
+
+                    self.driver.switch_to.default_content()  # Switch back to main content before the next iteration
+
+                except Exception as e:
+                    logging.warning("Could not find video: " + video["title"])
+                    continue
 
             logging.info("Downloaded: " + video["title"])
 
@@ -420,11 +447,11 @@ class TeachableDownloader:
                     self.complete_lecture()
                 except Exception as e:
                     logging.warning("Could not complete lecture: " + video["title"] + " cause: " + str(e))
+
         return
 
     def complete_lecture(self):
         # Complete lecture
-
         self.driver.switch_to.default_content()
         complete_button = self.driver.find_element(By.ID, "lecture_complete_button")
         if complete_button:
@@ -563,6 +590,7 @@ if __name__ == "__main__":
                         help='Increase verbosity level (repeat for more verbosity)')
     parser.add_argument('--complete-lecture', action='store_true', default=False,
                         help='Complete the lecture after downloading')
+    parser.add_argument("--login_url", required=False, help='(Optional) URL to teachable SSO login page')
     # parser.add_argument('-o', '--output', help='Output directory for the downloaded subtitle', default='.')
     args = parser.parse_args()
     verbose = False
@@ -578,7 +606,7 @@ if __name__ == "__main__":
 
     downloader = TeachableDownloader(verbose_arg=verbose, complete_lecture_arg=args.complete_lecture)
     try:
-        downloader.run(args.url, args.email, args.password)
+        downloader.run(args.url, args.email, args.password, args.login_url)
         downloader.clean_up()
         sys.exit(0)
     except KeyboardInterrupt:
