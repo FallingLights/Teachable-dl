@@ -23,10 +23,6 @@ If you believe an issue report is not a "bug", please point out specifically and
 
 ## Issues
 
-The Issues section is not a place to request features, or ask for things to be changed
-because you think they should be that way; The Issues section is specifically for
-reporting bugs in the code.
-
 ### Issue Guidelines
 
 * Issue reports should be as detailed as possible, and if applicable, should include instructions on how to reproduce the bug.
