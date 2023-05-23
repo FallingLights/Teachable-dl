@@ -72,7 +72,8 @@ class TeachableDownloader:
         self.chrome_options = uc.ChromeOptions()
         self.driver = uc.Chrome(options=self.chrome_options)
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/111.0.0.0 Safari/537.36",
             "Origin": "https://player.hotmart.com"
         }
         self.verbose = verbose_arg
@@ -91,7 +92,7 @@ class TeachableDownloader:
             self.driver.get(login_url)
 
         try:
-            self.login(course_url, email, password)
+            self.login(email, password)
         except Exception as e:
             logging.error("Could not login: " + str(e), exc_info=self.verbose)
             return
@@ -101,6 +102,28 @@ class TeachableDownloader:
         except Exception as e:
             logging.error("Could not download course: " + course_url + " cause: " + str(e))
 
+    def run_batch(self, url_array, email, password, login_url):
+        logging.info("Running batch download of courses ")
+
+        # Check if login_url is not set
+        if login_url is not None:
+            self.driver.get(login_url)
+        else:
+            logging.error("Login url is not set")
+            return
+
+        try:
+            self.login(email, password)
+        except Exception as e:
+            logging.error("Could not login: " + str(e), exc_info=self.verbose)
+            return
+
+        for url in url_array:
+            try:
+                self.pick_course_downloader(url)
+            except Exception as e:
+                logging.error("Could not download course: " + url + " cause: " + str(e))
+
     def find_login(self, course_url, email, password):
         logging.info("Trying to find login")
         self.driver.get(course_url)
@@ -109,7 +132,7 @@ class TeachableDownloader:
         login_element = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.LINK_TEXT, "Login")))
         login_element.click()
 
-    def login(self, course_url, email, password):
+    def login(self, email, password):
         logging.info("Logging in")
 
         WebDriverWait(self.driver, timeout=15).until(
@@ -132,7 +155,6 @@ class TeachableDownloader:
         self.driver.implicitly_wait(30)
         logging.info("Logged in, switching to course page")
         time.sleep(3)
-        self.driver.get(course_url)
 
     def pick_course_downloader(self, course_url):
         # Check if we are already on the course page
@@ -584,9 +606,29 @@ class TeachableDownloader:
         self.driver = None
 
 
+def read_urls_from_file(file_path):
+    urls = []
+    try:
+        with open(file_path, 'r') as file:
+            urls = file.read().splitlines()
+    except FileNotFoundError:
+        logging.error(f"File not found: {file_path}")
+    except IOError as e:
+        logging.error(f"IOError reading file: {file_path}. Error: {str(e)}")
+    except Exception as e:
+        logging.error(f"Unexpected error reading file: {file_path}. Error: {str(e)}")
+
+    if urls:
+        logging.info(f"Successfully read {len(urls)} URLs from file: {file_path}")
+    else:
+        logging.warning(f"No URLs found in file: {file_path}")
+
+    return urls
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download subtitles from URL')
-    parser.add_argument("--url", required=True, help='URL of the course')
+    parser.add_argument("--url", required=False, help='URL of the course')
     parser.add_argument("--email", required=True, help='Email of the account')
     parser.add_argument("--password", required=True, help='Password of the account')
     parser.add_argument('-v', '--verbose', action='count', default=0,
@@ -594,7 +636,7 @@ if __name__ == "__main__":
     parser.add_argument('--complete-lecture', action='store_true', default=False,
                         help='Complete the lecture after downloading')
     parser.add_argument("--login_url", required=False, help='(Optional) URL to teachable SSO login page')
-    # parser.add_argument('-o', '--output', help='Output directory for the downloaded subtitle', default='.')
+    parser.add_argument("--file", required=False, help='Path to a text file that contains URLs')
     args = parser.parse_args()
     verbose = False
     if args.verbose == 0:
@@ -608,15 +650,34 @@ if __name__ == "__main__":
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
 
     downloader = TeachableDownloader(verbose_arg=verbose, complete_lecture_arg=args.complete_lecture)
-    try:
-        downloader.run(args.url, args.email, args.password, args.login_url)
-        downloader.clean_up()
-        sys.exit(0)
-    except KeyboardInterrupt:
-        logging.error("Interrupted by user")
-        downloader.clean_up()
-        sys.exit(1)
-    except Exception as e:
-        logging.error("Error: " + str(e))
-        downloader.clean_up()
-        sys.exit(1)
+    if args.file:
+        urls = read_urls_from_file(args.file)
+        try:
+            downloader.run_batch(urls, args.email, args.password, args.login_url)
+            downloader.clean_up()
+            sys.exit(0)
+        except KeyboardInterrupt:
+            logging.error("Interrupted by user")
+            downloader.clean_up()
+            sys.exit(1)
+        except Exception as e:
+            logging.error("Error: " + str(e))
+            downloader.clean_up()
+            sys.exit(1)
+    else:
+        # Check if url argument is passed
+        if not args.url:
+            logging.error("URL is required")
+            sys.exit(1)
+        try:
+            downloader.run(args.url, args.email, args.password, args.login_url)
+            downloader.clean_up()
+            sys.exit(0)
+        except KeyboardInterrupt:
+            logging.error("Interrupted by user")
+            downloader.clean_up()
+            sys.exit(1)
+        except Exception as e:
+            logging.error("Error: " + str(e))
+            downloader.clean_up()
+            sys.exit(1)
