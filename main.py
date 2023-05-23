@@ -143,20 +143,21 @@ class TeachableDownloader:
         WebDriverWait(self.driver, timeout=15).until(
             EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
+        # https://support.teachable.com/hc/en-us/articles/360058715732-Course-Design-Templates
         logging.info("Picking course downloader")
         if self.driver.find_elements(By.ID, "__next"):
             logging.info('Choosing __next format')
-            self.download_course_next(course_url)
+            self.download_course_simple(course_url)
         elif self.driver.find_elements(By.CLASS_NAME, "course-mainbar"):
             logging.info('Choosing course-mainbar format')
-            self.download_course_mainbar(course_url)
+            self.download_course_classic(course_url)
         elif self.driver.find_elements(By.CSS_SELECTOR, ".block__curriculum"):
             logging.info('Choosing .block__curriculum format')
-            self.download_course_block(course_url)
+            self.download_course_colossal(course_url)
         else:
             logging.error("Downloader does not support this course template. Please open an issue on github.")
 
-    def download_course_block(self, course_url):
+    def download_course_colossal(self, course_url):
         logging.info("Detected block course format")
         try:
             logging.info("Getting course title")
@@ -219,7 +220,8 @@ class TeachableDownloader:
 
         self.download_videos_from_links(video_list)
 
-    def download_course_mainbar(self, course_url):
+    def download_course_classic(self, course_url):
+        # self.driver.find_elements(By.CLASS_NAME, "course-mainbar")
         logging.info("Detected _mainbar course format")
         course_title = WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "body > section > div.course-sidebar > h2"))
@@ -310,7 +312,7 @@ class TeachableDownloader:
         course_title = clean_string(course_title)
         return course_title
 
-    def download_course_next(self, course_url):
+    def download_course_simple(self, course_url):
         self.driver.implicitly_wait(2)
         logging.info("Detected next course format")
         course_title = self.get_course_title_next(course_url)
@@ -578,7 +580,8 @@ class TeachableDownloader:
 
     def clean_up(self):
         logging.info("Cleaning up")
-        self.driver.quit()
+        self.driver.close()
+        self.driver = None
 
 
 if __name__ == "__main__":
