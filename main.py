@@ -53,8 +53,8 @@ def clean_string(data):
     logging.debug("Cleaning string: " + data)
     data = data.encode('ascii', 'ignore').decode('ascii')
     return remove_emojis(data).replace("\n", "-").replace(" ", "-").replace(":", "-") \
-        .replace("/", "-").replace("|", "").replace("*", "").replace("?", "").replace("<", "") \
-        .replace(">", "")
+        .replace("/", "-").replace("|", "-").replace("*", "").replace("?", "-").replace("<", "-") \
+        .replace(">", "-").replace("\"", "-").replace("\\", "-")
 
 
 def truncate_title_to_fit_file_name(title, max_file_name_length=255):
