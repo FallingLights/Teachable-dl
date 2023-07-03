@@ -53,7 +53,8 @@ def clean_string(data):
     logging.debug("Cleaning string: " + data)
     data = data.encode('ascii', 'ignore').decode('ascii')
     return remove_emojis(data).replace("\n", "-").replace(" ", "-").replace(":", "-") \
-        .replace("/", "-").replace("|", "")
+        .replace("/", "-").replace("|", "").replace("*", "").replace("?", "").replace("<", "") \
+        .replace(">", "")
 
 
 def truncate_title_to_fit_file_name(title, max_file_name_length=255):
@@ -214,7 +215,7 @@ class TeachableDownloader:
         for section in sections:
             chapter_title = section.find_element(By.CSS_SELECTOR, ".block__curriculum__section__title").text
             chapter_title = clean_string(chapter_title)
-            chapter_title = chapter_title = "{:02d}-{}".format(chapter_idx, chapter_title)
+            chapter_title = "{:02d}-{}".format(chapter_idx, chapter_title)
             logging.info("Found chapter: " + chapter_title)
 
             download_path = os.path.join(course_path, chapter_title)
