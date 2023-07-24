@@ -80,44 +80,58 @@ class TeachableDownloader:
         self.verbose = verbose_arg
         self._complete_lecture = complete_lecture_arg
 
-    def run(self, course_url, email, password, login_url):
+    def run(self, course_url, email, password, login_url, man_login_url):
         logging.info("Starting download of course: " + course_url)
 
-        # Check if login_url is not set
-        if login_url is None:
-            try:
-                self.find_login(course_url, email, password)
-            except Exception as e:
-                logging.error("Could not find login: " + str(e), exc_info=self.verbose)
-        else:
-            self.driver.get(login_url)
+        if man_login_url is None:
+            # Check if login_url is not set
+            if login_url is None:
+                try:
+                    self.find_login(course_url, email, password)
+                except Exception as e:
+                    logging.error("Could not find login: " + str(e), exc_info=self.verbose)
+            else:
+                self.driver.get(login_url)
 
-        try:
-            self.login(email, password)
-        except Exception as e:
-            logging.error("Could not login: " + str(e), exc_info=self.verbose)
-            return
+            try:
+                self.login(email, password)
+            except Exception as e:
+                logging.error("Could not login: " + str(e), exc_info=self.verbose)
+                return
+        else:
+            self.driver.get(course_url)
+            while self.driver.current_url != man_login_url:
+                time.sleep(3)
+                logging.info("Waiting for user to navigate to url: " + man_login_url)
+                logging.info("Current url: " + self.driver.current_url)
 
         try:
             self.pick_course_downloader(course_url)
         except Exception as e:
             logging.error("Could not download course: " + course_url + " cause: " + str(e))
 
-    def run_batch(self, url_array, email, password, login_url):
+    def run_batch(self, url_array, email, password, login_url, man_login_url):
         logging.info("Running batch download of courses ")
 
-        # Check if login_url is not set
-        if login_url is not None:
-            self.driver.get(login_url)
-        else:
-            logging.error("Login url is not set")
-            return
+        if man_login_url is None:
+            # Check if login_url is not set
+            if login_url is not None:
+                self.driver.get(login_url)
+            else:
+                logging.error("Login url is not set")
+                return
 
-        try:
-            self.login(email, password)
-        except Exception as e:
-            logging.error("Could not login: " + str(e), exc_info=self.verbose)
-            return
+            try:
+                self.login(email, password)
+            except Exception as e:
+                logging.error("Could not login: " + str(e), exc_info=self.verbose)
+                return
+        else:
+            self.driver.get(course_url)
+            while self.driver.current_url != man_login_url:
+                time.sleep(3)
+                logging.info("Waiting for user to navigate to url: " + man_login_url)
+                logging.info("Current url: " + self.driver.current_url)
 
         for url in url_array:
             try:
@@ -626,17 +640,24 @@ def read_urls_from_file(file_path):
 
     return urls
 
+def check_required_args(args):
+    if args.email and args.password:
+        return True
+    elif args.man_login_url:
+        return True
+    return False
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download subtitles from URL')
     parser.add_argument("--url", required=False, help='URL of the course')
-    parser.add_argument("--email", required=True, help='Email of the account')
-    parser.add_argument("--password", required=True, help='Password of the account')
+    parser.add_argument("--email", required=False, help='Email of the account')
+    parser.add_argument("--password", required=False, help='Password of the account')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase verbosity level (repeat for more verbosity)')
     parser.add_argument('--complete-lecture', action='store_true', default=False,
                         help='Complete the lecture after downloading')
     parser.add_argument("--login_url", required=False, help='(Optional) URL to teachable SSO login page')
+    parser.add_argument("--man_login_url", required=False, help='Login manually and start downloading when this url is reached')
     parser.add_argument("--file", required=False, help='Path to a text file that contains URLs')
     args = parser.parse_args()
     verbose = False
@@ -650,11 +671,15 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
 
+    if check_required_args(args) == False:
+        logging.error("Required arguments are missing. Choose email/password or manual login (man_login_url).")
+        exit(1)
+
     downloader = TeachableDownloader(verbose_arg=verbose, complete_lecture_arg=args.complete_lecture)
     if args.file:
         urls = read_urls_from_file(args.file)
         try:
-            downloader.run_batch(urls, args.email, args.password, args.login_url)
+            downloader.run_batch(urls, args.email, args.password, args.login_url, args.man_login_url)
             downloader.clean_up()
             sys.exit(0)
         except KeyboardInterrupt:
@@ -671,7 +696,7 @@ if __name__ == "__main__":
             logging.error("URL is required")
             sys.exit(1)
         try:
-            downloader.run(args.url, args.email, args.password, args.login_url)
+            downloader.run(args.url, args.email, args.password, args.login_url, args.man_login_url)
             downloader.clean_up()
             sys.exit(0)
         except KeyboardInterrupt:
