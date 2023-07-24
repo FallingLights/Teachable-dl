@@ -1,13 +1,12 @@
 <a name="readme-top"></a>
 
 <!-- PROJECT SHIELDS -->
+
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
 [![MIT License][license-shield]][license-url]
-
-
 
 <!-- PROJECT LOGO -->
 <br />
@@ -27,8 +26,6 @@
     <a href="https://github.com/FallingLights/Teachable-Dl/issues">Request Feature</a>
   </p>
 </div>
-
-
 
 <!-- TABLE OF CONTENTS -->
 <details>
@@ -56,9 +53,8 @@
   </ol>
 </details>
 
-
-
 <!-- ABOUT THE PROJECT -->
+
 ## About The Project
 
 <!--[![Product Name Screen Shot][product-screenshot]](https://example.com) -->
@@ -68,21 +64,19 @@ Teachable-dl is a Python-based downloader for downloading courses from the Teach
 ⭐ `Star` this repository if you find it valuable and worth maintaining.
 
 👁 `Watch` this repository to get notified about new releases, issues, etc.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 ### Built With
 
-* [![Python][Python.org]][Python-url]
-* [![Selenium][Selenium.org]][Selenium-url]
-* [![yt-dlp][yt-dlp.org]][yt-dlp-url]
+- [![Python][Python.org]][Python-url]
+- [![Selenium][Selenium.org]][Selenium-url]
+- [![yt-dlp][yt-dlp.org]][yt-dlp-url]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- GETTING STARTED -->
+
 ## Getting Started
 
 To get the program up and running follow these simple steps.
@@ -91,19 +85,27 @@ To get the program up and running follow these simple steps.
 
 This is an example of how to list things you need to use the software and how to install them.
 (You can also run this script on a windows machine)
-* yt-dlp
+
+- yt-dlp
+
 ```sh
 python3 -m pip install -U yt-dlp
 ```
-* ffmpeg
+
+- ffmpeg
+
 ```sh
 sudo apt install ffmpeg
 ```
-* wget
+
+- wget
+
 ```sh
 sudo apt install wget
 ```
-* Chrome
+
+- Chrome
+
 ```sh
 sudo apt install chromium-browser
 ```
@@ -111,56 +113,77 @@ sudo apt install chromium-browser
 ### Installation
 
 1. Clone the repo
+
 ```sh
 git clone https://github.com/FallingLights/Teachable-Dl.git
 ```
+
 2. Enter to the project
+
 ```sh
 cd Teachable-Dl
 ```
+
 3. Set up the environment
+
 ```sh
 python3 -m venv env
 ```
+
 4. Activate the environment
+
 ```sh
 source env/bin/activate
 ```
+
 5. Install the requirements
+
 ```sh
 pip install -r requirements.txt
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- USAGE EXAMPLES -->
+
 ## Usage
 
-Run the program
+Activate the environment
+
 ```sh
 source env/bin/activate
+```
+
+Run the program
+
+```sh
 python3 main.py --url <course_url> --email <email> --password <password>
 ```
 
+or run with manual login
+
+```sh
+python3 main.py --url <course_url> --man_login_url <man_login_url>
+```
+
+> Make sure to navigate to the url within the first tab and check the console for an exact url match.
+
 To see all the options
+
 ```shell
 python main.py --help
 ```
 
-
-
 <!-- ROADMAP -->
+
 ## Roadmap
 
 See the [open issues](https://github.com/FallingLights/Teachable-Dl/issues) for a full list of proposed features (and known issues).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- CONTRIBUTING -->
+
 ## Contributing
 
 Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
@@ -176,18 +199,16 @@ Don't forget to give the project a star! Thanks again!
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- LICENSE -->
+
 ## License
 
 Distributed under the GNU LGPLv3 License. See `LICENSE.txt` for more information.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- CONTACT -->
+
 ## Contact
 
 Your Name - [@fallinglight_s](https://twitter.com/fallinglight_s)
@@ -196,20 +217,18 @@ Project Link: [https://github.com/FallingLights/Teachable-Dl](https://github.com
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- ACKNOWLEDGMENTS -->
+
 ## Acknowledgments
 
-* [merberich](https://github.com/merberich)
-* [Green0Photon](https://github.com/Green0Photon)
+- [merberich](https://github.com/merberich)
+- [Green0Photon](https://github.com/Green0Photon)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+
 [contributors-shield]: https://img.shields.io/github/contributors/FallingLights/Teachable-Dl.svg?style=for-the-badge
 [contributors-url]: https://github.com/FallingLights/Teachable-Dl/graphs/contributors
 [forks-shield]: https://img.shields.io/github/forks/FallingLights/Teachable-Dl.svg?style=for-the-badge
