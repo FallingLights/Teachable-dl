@@ -163,7 +163,7 @@ python3 main.py --url <course_url> --email <email> --password <password>
 or run with manual login
 
 ```sh
-python3 main.py --url <course_url> --man_login_url <man_login_url>
+python3 main.py --url <course_url> --man_login_url <man_login_url> --verbose
 ```
 
 > Make sure to navigate to the url within the first tab and check the console for an exact url match.
