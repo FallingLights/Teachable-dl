@@ -81,8 +81,8 @@ class TeachableDownloader:
         self._complete_lecture = complete_lecture_arg
 
     def run(self, course_url, email, password, login_url, man_login_url):
-        logging.info("Starting download of course: " + course_url)
-
+        logging.info("Starting login")
+        
         if man_login_url is None:
             # Check if login_url is not set
             if login_url is None:
@@ -105,13 +105,14 @@ class TeachableDownloader:
                 logging.info("Waiting for user to navigate to url: " + man_login_url)
                 logging.info("Current url: " + self.driver.current_url)
 
+        logging.info("Starting download of course: " + course_url)
         try:
             self.pick_course_downloader(course_url)
         except Exception as e:
             logging.error("Could not download course: " + course_url + " cause: " + str(e))
 
     def run_batch(self, url_array, email, password, login_url, man_login_url):
-        logging.info("Running batch download of courses ")
+        logging.info("Starting login")
 
         if man_login_url is None:
             # Check if login_url is not set
@@ -133,6 +134,7 @@ class TeachableDownloader:
                 logging.info("Waiting for user to navigate to url: " + man_login_url)
                 logging.info("Current url: " + self.driver.current_url)
 
+        logging.info("Running batch download of courses ")
         for url in url_array:
             try:
                 self.pick_course_downloader(url)
