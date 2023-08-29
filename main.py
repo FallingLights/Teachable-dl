@@ -73,12 +73,55 @@ class TeachableDownloader:
         self.chrome_options = uc.ChromeOptions()
         self.driver = uc.Chrome(options=self.chrome_options)
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                          "Chrome/111.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
             "Origin": "https://player.hotmart.com"
         }
         self.verbose = verbose_arg
         self._complete_lecture = complete_lecture_arg
+        
+    def check_elem_exists(self, by, selector, timeout):
+        try:
+            WebDriverWait(self.driver, timeout=False).until(
+                EC.presence_of_element_located((by, selector))
+            )
+        except NoSuchElementException:
+            return False
+        except TimeoutException:
+            return False
+        except Exception:
+            return False
+        else:
+            return True
+
+    def bypass_cloudflare(self):
+        if self.driver.capabilities["browserVersion"].split(".")[0] < "115":
+            return
+        logging.info("Bypassing cloudflare")
+        time.sleep(1)
+        if self.check_elem_exists(By.ID, "challenge-stage", timeout=1):
+            try:
+                self.driver.find_element(
+                    By.ID, "challenge-stage"
+                ).click()  # make sure the challenge is focused
+                self.driver.execute_script(
+                    '''window.open("''' + self.driver.current_url + """","_blank");"""
+                )  # open page in new tab
+                input(
+                    "\033[93mWarning: Bypassing Cloudflare\nplease click on the captcha checkbox if not done already and press enter to continue\033[0m"
+                )
+                self.driver.switch_to.window(
+                    window_name=self.driver.window_handles[0]
+                )  # switch to first tab
+                self.driver.close()  # close first tab
+                self.driver.switch_to.window(
+                    window_name=self.driver.window_handles[0]
+                )  # switch back to new tab
+            except Exception as e:
+                logging.error("Could not bypass cloudflare: " + str(e))
+                return
+        else:
+            logging.info("No need to bypass cloudflare")
+            return
 
     def run(self, course_url, email, password, login_url, man_login_url):
         logging.info("Starting login")
@@ -151,6 +194,7 @@ class TeachableDownloader:
 
     def login(self, email, password):
         logging.info("Logging in")
+        self.bypass_cloudflare()
 
         WebDriverWait(self.driver, timeout=15).until(
             EC.presence_of_element_located((By.TAG_NAME, 'body')))
@@ -178,6 +222,7 @@ class TeachableDownloader:
         if not self.driver.current_url == course_url:
             logging.info("Switching to course page")
             self.driver.get(course_url)
+            self.bypass_cloudflare()
 
         WebDriverWait(self.driver, timeout=15).until(
             EC.presence_of_element_located((By.TAG_NAME, 'body')))
