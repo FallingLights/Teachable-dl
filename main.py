@@ -78,6 +78,20 @@ class TeachableDownloader:
         }
         self.verbose = verbose_arg
         self._complete_lecture = complete_lecture_arg
+        
+    def check_elem_exists(self, by, selector, timeout):
+        try:
+            WebDriverWait(self.driver, timeout=False).until(
+                EC.presence_of_element_located((by, selector))
+            )
+        except NoSuchElementException:
+            return False
+        except TimeoutException:
+            return False
+        except Exception:
+            return False
+        else:
+            return True
 
     def bypass_cloudflare(self):
         if self.driver.capabilities["browserVersion"].split(".")[0] < "115":
