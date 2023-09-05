@@ -14,6 +14,7 @@ import undetected_chromedriver as uc
 import wget
 import yt_dlp
 from selenium.common import TimeoutException
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.remote.webdriver import By
 from selenium.webdriver.support.wait import WebDriverWait
 
