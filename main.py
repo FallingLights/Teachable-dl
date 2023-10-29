@@ -10,13 +10,13 @@ from urllib.parse import urljoin
 
 import requests
 import selenium.webdriver.support.expected_conditions as EC
-from seleniumbase import Driver
 import wget
 import yt_dlp
 from selenium.common import TimeoutException
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.remote.webdriver import By
 from selenium.webdriver.support.wait import WebDriverWait
+from seleniumbase import Driver
 
 
 def create_folder(course_title):
@@ -204,8 +204,7 @@ class TeachableDownloader:
         commit_element.click()
 
         self.driver.implicitly_wait(30)
-        logging.info("Logged in, switching to course page")
-        time.sleep(3)
+
         # Check for new device challenge
         # input with name otp_code
         if self.check_elem_exists(By.NAME, "otp_code", timeout=1):
@@ -214,6 +213,8 @@ class TeachableDownloader:
                 "\033[93mWarning: New device challenge\nplease enter the code sent to your email and press enter to "
                 "continue\033[0m"
             )
+        logging.info("Logged in, switching to course page")
+        time.sleep(3)
 
     def pick_course_downloader(self, course_url):
         # Check if we are already on the course page
