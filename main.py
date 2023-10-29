@@ -136,14 +136,22 @@ class TeachableDownloader:
 
     def run_batch(self, url_array, email, password, login_url, man_login_url):
         """
+        This method handles batch downloading of courses. It navigates to the given URLs, logs in if necessary,
+        and initiates the download process for each course.
 
-
-        :param url_array: Array of course urls
-        :param email: Email to log in with
-        :param password: Password to log in with
-        :param login_url: Url to the login page
-        :param man_login_url: Url to the page where script starts downloading
-        :return:
+        :param url_array: List[str]
+            An array of URLs pointing to the courses that need to be downloaded.
+        :param email: str
+            The email address used to log in to the platform.
+        :param password: str
+            The password associated with the provided email address.
+        :param login_url: str
+            The URL of the login page. If not provided, manual login is assumed.
+        :param man_login_url: str
+            The URL of the page to navigate to after manual login. This parameter is optional.
+            If provided, the script will wait until the user has manually navigated to this URL
+            before starting the download process.
+        :return: None
         """
         logging.info("Starting login")
 
