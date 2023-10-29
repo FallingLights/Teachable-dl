@@ -26,41 +26,19 @@ def create_folder(course_title):
     return course_path
 
 
-def remove_emojis(data):
-    emoj = re.compile("["
-                      u"\U0001F600-\U0001F64F"  # emoticons
-                      u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-                      u"\U0001F680-\U0001F6FF"  # transport & map symbols
-                      u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
-                      u"\U00002500-\U00002BEF"  # chinese char
-                      u"\U00002702-\U000027B0"
-                      u"\U00002702-\U000027B0"
-                      u"\U000024C2-\U0001F251"
-                      u"\U0001f926-\U0001f937"
-                      u"\U00010000-\U0010ffff"
-                      u"\u2640-\u2642"
-                      u"\u2600-\u2B55"
-                      u"\u200d"
-                      u"\u23cf"
-                      u"\u23e9"
-                      u"\u231a"
-                      u"\ufe0f"  # dingbats
-                      u"\u3030"
-                      "]+", re.UNICODE)
-    return re.sub(emoj, '', data)
-
-
 def clean_string(data):
     logging.debug("Cleaning string: " + data)
+    # Remove all non-ASCII characters (including emojis)
     data = data.encode('ascii', 'ignore').decode('ascii')
-    return remove_emojis(data).replace("\n", "-").replace(" ", "-").replace(":", "-") \
+    # Replace specific characters with "-"
+    return data.replace("\n", "-").replace(" ", "-").replace(":", "-") \
         .replace("/", "-").replace("|", "-").replace("*", "").replace("?", "-").replace("<", "-") \
         .replace(">", "-").replace("\"", "-").replace("\\", "-")
 
 
 def truncate_title_to_fit_file_name(title, max_file_name_length=255):
     # the file name length should not be too long
-    # truncate the title to accomodate the max used file extension length and lecture index prefix
+    # truncate the title to accommodate the max used file extension length and lecture index prefix
     max_title_length = max_file_name_length - len(".mp4.part-Frag0000.part") - 3
     if len(title) > max_title_length:
         turncated_title = title[:max_title_length]
@@ -74,12 +52,13 @@ class TeachableDownloader:
         self.chrome_options = uc.ChromeOptions()
         self.driver = uc.Chrome(options=self.chrome_options)
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 "
+                          "Safari/537.36",
             "Origin": "https://player.hotmart.com"
         }
         self.verbose = verbose_arg
         self._complete_lecture = complete_lecture_arg
-        
+
     def check_elem_exists(self, by, selector, timeout):
         try:
             WebDriverWait(self.driver, timeout=False).until(
@@ -108,7 +87,8 @@ class TeachableDownloader:
                     '''window.open("''' + self.driver.current_url + """","_blank");"""
                 )  # open page in new tab
                 input(
-                    "\033[93mWarning: Bypassing Cloudflare\nplease click on the captcha checkbox if not done already and press enter to continue\033[0m"
+                    "\033[93mWarning: Bypassing Cloudflare\nplease click on the captcha checkbox if not done already "
+                    "and press enter to continue\033[0m"
                 )
                 self.driver.switch_to.window(
                     window_name=self.driver.window_handles[0]
@@ -126,7 +106,7 @@ class TeachableDownloader:
 
     def run(self, course_url, email, password, login_url, man_login_url):
         logging.info("Starting login")
-        
+
         if man_login_url is None:
             # Check if login_url is not set
             if login_url is None:
@@ -156,6 +136,16 @@ class TeachableDownloader:
             logging.error("Could not download course: " + course_url + " cause: " + str(e))
 
     def run_batch(self, url_array, email, password, login_url, man_login_url):
+        """
+
+
+        :param url_array: Array of course urls
+        :param email: Email to log in with
+        :param password: Password to log in with
+        :param login_url: Url to the login page
+        :param man_login_url: Url to the page where script starts downloading
+        :return:
+        """
         logging.info("Starting login")
 
         if man_login_url is None:
@@ -459,9 +449,8 @@ class TeachableDownloader:
             for bar in bars:
                 video = bar.find_element(By.CSS_SELECTOR, ".text")
                 link = video.get_attribute("href")
-                title = video.text
                 # Remove new line characters from the title and replace spaces with -
-                title = clean_string(title)
+                title = clean_string(video.text)
                 logging.info("Found lecture: " + title)
                 truncated_title = truncate_title_to_fit_file_name(title)
                 video_entity = {"link": link, "title": truncated_title, "idx": idx, "download_path": download_path}
@@ -688,12 +677,14 @@ def read_urls_from_file(file_path):
 
     return urls
 
+
 def check_required_args(args):
     if args.email and args.password:
         return True
     elif args.man_login_url:
         return True
     return False
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download subtitles from URL')
@@ -705,7 +696,8 @@ if __name__ == "__main__":
     parser.add_argument('--complete-lecture', action='store_true', default=False,
                         help='Complete the lecture after downloading')
     parser.add_argument("--login_url", required=False, help='(Optional) URL to teachable SSO login page')
-    parser.add_argument("--man_login_url", required=False, help='Login manually and start downloading when this url is reached')
+    parser.add_argument("--man_login_url", required=False,
+                        help='Login manually and start downloading when this url is reached')
     parser.add_argument("--file", required=False, help='Path to a text file that contains URLs')
     args = parser.parse_args()
     verbose = False
@@ -719,7 +711,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
 
-    if check_required_args(args) == False:
+    if not check_required_args(args):
         logging.error("Required arguments are missing. Choose email/password or manual login (man_login_url).")
         exit(1)
 
