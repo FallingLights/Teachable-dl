@@ -85,7 +85,7 @@ To get the program up and running follow these simple steps.
 
 This is an example of how to list things you need to use the software and how to install them.
 (You can also run this script on a windows machine)
-
+#### For Linux users
 - yt-dlp
 
 ```sh
@@ -109,6 +109,20 @@ sudo apt install wget
 ```sh
 sudo apt install chromium-browser
 ```
+
+#### For Windows users
+- yt-dlp: install using pip. See [yt-dlp's official repo.](https://github.com/yt-dlp/yt-dlp/)
+
+```sh
+python3 -m pip install -U yt-dlp
+```
+
+- ffmpeg: Download and install from [ffmpeg's official website.](https://ffmpeg.org/download.html)
+> Make sure to add ffmpeg to your PATH
+
+- wget: PowerShell has wget installed by default. If you are using Command Prompt, you can install wget using [GNU Wget’s official website.](https://www.gnu.org/software/wget/)
+
+- Chrome: Download and install from [Google Chrome's official website.](https://www.google.com/chrome/)
 
 ### Installation
 
@@ -168,8 +182,7 @@ python3 main.py --url <course_url> --man_login_url <man_login_url> --verbose
 
 > Make sure to navigate to the url within the first tab and check the console for an exact url match.
 
-To see all the options
-
+For a list of all available options and up-to-date parameters, use the --help command:
 ```shell
 python main.py --help
 ```
