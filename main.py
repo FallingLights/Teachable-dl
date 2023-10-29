@@ -36,7 +36,7 @@ def clean_string(data):
         .replace(">", "-").replace("\"", "-").replace("\\", "-")
 
 
-def truncate_title_to_fit_file_name(title, max_file_name_length=255):
+def truncate_title_to_fit_file_name(title, max_file_name_length=250):
     # the file name length should not be too long
     # truncate the title to accommodate the max used file extension length and lecture index prefix
     max_title_length = max_file_name_length - len(".mp4.part-Frag0000.part") - 3
@@ -51,9 +51,10 @@ class TeachableDownloader:
     def __init__(self, verbose_arg=False, complete_lecture_arg=False):
         self.driver = Driver(uc=True)
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                          "Chrome/118.0.0.0 Safari/537.36 Edg/118.0.2088.76",
-            "Origin": "https://player.hotmart.com"
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0"
+                          " Safari/537.36",
+            "Origin": "https://player.hotmart.com",
+            "Referer": "https://player.hotmart.com"
         }
         self.verbose = verbose_arg
         self._complete_lecture = complete_lecture_arg
@@ -229,7 +230,8 @@ class TeachableDownloader:
         if not self.driver.current_url == course_url:
             logging.info("Switching to course page")
             self.driver.get(course_url)
-            self.bypass_cloudflare()
+            if self.check_elem_exists(By.ID, "challenge-stage", timeout=1):
+                self.bypass_cloudflare()
 
         WebDriverWait(self.driver, timeout=15).until(
             EC.presence_of_element_located((By.TAG_NAME, 'body')))
@@ -672,6 +674,9 @@ class TeachableDownloader:
         logging.info("Cleaning up")
         self.driver.close()
         self.driver = None
+        # Delete cookies.txt
+        if os.path.exists("cookies.txt"):
+            os.remove("cookies.txt")
 
 
 def read_urls_from_file(file_path):
