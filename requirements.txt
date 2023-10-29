@@ -1,5 +1,6 @@
-selenium~=4.11.2
-wget~=3.2
-requests~=2.31.0
+selenium>=4.11.2
+wget>=3.2
+requests>=2.31.0
 undetected_chromedriver
 yt-dlp
+seleniumbase>=4.20.8

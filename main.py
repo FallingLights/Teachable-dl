@@ -9,8 +9,8 @@ import time
 from urllib.parse import urljoin
 
 import requests
-import selenium.webdriver.support.expected_conditions as EC  # noqa
-import undetected_chromedriver as uc
+import selenium.webdriver.support.expected_conditions as EC
+from seleniumbase import Driver
 import wget
 import yt_dlp
 from selenium.common import TimeoutException
@@ -49,11 +49,10 @@ def truncate_title_to_fit_file_name(title, max_file_name_length=255):
 
 class TeachableDownloader:
     def __init__(self, verbose_arg=False, complete_lecture_arg=False):
-        self.chrome_options = uc.ChromeOptions()
-        self.driver = uc.Chrome(options=self.chrome_options)
+        self.driver = Driver(uc=True)
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 "
-                          "Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/118.0.0.0 Safari/537.36 Edg/118.0.2088.76",
             "Origin": "https://player.hotmart.com"
         }
         self.verbose = verbose_arg
@@ -162,7 +161,7 @@ class TeachableDownloader:
                 logging.error("Could not login: " + str(e), exc_info=self.verbose)
                 return
         else:
-            self.driver.get(course_url)
+            self.driver.get(url_array[0])
             while self.driver.current_url != man_login_url:
                 time.sleep(3)
                 logging.info("Waiting for user to navigate to url: " + man_login_url)
@@ -207,6 +206,14 @@ class TeachableDownloader:
         self.driver.implicitly_wait(30)
         logging.info("Logged in, switching to course page")
         time.sleep(3)
+        # Check for new device challenge
+        # input with name otp_code
+        if self.check_elem_exists(By.NAME, "otp_code", timeout=1):
+            # wait for user to enter code
+            input(
+                "\033[93mWarning: New device challenge\nplease enter the code sent to your email and press enter to "
+                "continue\033[0m"
+            )
 
     def pick_course_downloader(self, course_url):
         # Check if we are already on the course page
