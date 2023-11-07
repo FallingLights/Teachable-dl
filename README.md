@@ -224,7 +224,7 @@ Distributed under the GNU LGPLv3 License. See `LICENSE.txt` for more information
 
 ## Contact
 
-Your Name - [@fallinglight_s](https://twitter.com/fallinglight_s)
+[@fallinglight_s](https://twitter.com/fallinglight_s)
 
 Project Link: [https://github.com/FallingLights/Teachable-Dl](https://github.com/FallingLights/Teachable-Dl)
 
