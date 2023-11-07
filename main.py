@@ -49,7 +49,7 @@ def truncate_title_to_fit_file_name(title, max_file_name_length=250):
 
 class TeachableDownloader:
     def __init__(self, verbose_arg=False, complete_lecture_arg=False):
-        self.driver = Driver(uc=True)
+        self.driver = Driver(uc=True, headless=False)
         self.headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0"
                           " Safari/537.36",
@@ -88,7 +88,7 @@ class TeachableDownloader:
                 )  # open page in new tab
                 input(
                     "\033[93mWarning: Bypassing Cloudflare\nplease click on the captcha checkbox if not done already "
-                    "and press enter to continue\033[0m"
+                    "and press enter to continue (do not close any of the tabs)\033[0m"
                 )
                 self.driver.switch_to.window(
                     window_name=self.driver.window_handles[0]
@@ -533,7 +533,7 @@ class TeachableDownloader:
                     logging.warning("Could not find video: " + video["title"])
                     continue
 
-            logging.info("Downloaded: " + video["title"])
+            logging.info("Downloaded video: " + video["title"])
 
             if self._complete_lecture:
                 try:
