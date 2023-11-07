@@ -672,8 +672,7 @@ class TeachableDownloader:
 
     def clean_up(self):
         logging.info("Cleaning up")
-        self.driver.close()
-        self.driver = None
+        self.driver.quit()
         # Delete cookies.txt
         if os.path.exists("cookies.txt"):
             os.remove("cookies.txt")
