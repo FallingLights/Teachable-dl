@@ -49,7 +49,7 @@ def truncate_title_to_fit_file_name(title, max_file_name_length=250):
 
 class TeachableDownloader:
     def __init__(self, verbose_arg=False, complete_lecture_arg=False):
-        self.driver = Driver(uc=True, headless=False)
+        self.driver = Driver(uc=True, headed=True)
         self.headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0"
                           " Safari/537.36",
@@ -193,7 +193,8 @@ class TeachableDownloader:
 
     def login(self, email, password):
         logging.info("Logging in")
-        self.bypass_cloudflare()
+        if self.check_elem_exists(By.ID, "challenge-stage", timeout=1):
+            self.bypass_cloudflare()
 
         WebDriverWait(self.driver, timeout=15).until(
             EC.presence_of_element_located((By.TAG_NAME, 'body')))
