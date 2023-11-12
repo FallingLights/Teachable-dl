@@ -6,7 +6,7 @@ import re
 import string
 import sys
 import time
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse, urlunparse
 
 import requests
 import selenium.webdriver.support.expected_conditions as EC
@@ -111,7 +111,7 @@ class TeachableDownloader:
             # Check if login_url is not set
             if login_url is None:
                 try:
-                    self.find_login(course_url, email, password)
+                    self.find_login(course_url)
                 except Exception as e:
                     logging.error("Could not find login: " + str(e), exc_info=self.verbose)
             else:
@@ -183,26 +183,44 @@ class TeachableDownloader:
             except Exception as e:
                 logging.error("Could not download course: " + url + " cause: " + str(e))
 
-    def find_login(self, course_url, email, password):
-        logging.info("Trying to find login")
-        self.driver.get(course_url)
-        self.driver.implicitly_wait(30)
+    def construct_sign_in_url(self, course_url):
+        parsed_url = urlparse(course_url)
+        # Replace the path with '/sign_in'
+        sign_in_path = '/sign_in'
+        fallback_url = urlunparse((parsed_url.scheme, parsed_url.netloc, sign_in_path, '', '', ''))
+        return fallback_url
 
-        login_element = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.LINK_TEXT, "Login")))
-        login_element.click()
+    def find_login(self, course_url):
+        logging.info("Trying to find login")
+
+        self.driver.implicitly_wait(15)
+        self.driver.get(course_url)
+
+        try:
+            login_element = WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.LINK_TEXT, "Login"))
+            )
+        except TimeoutException:
+            logging.warning("Login button not found, navigating to fallback URL")
+            fallback_url = self.construct_sign_in_url(course_url)
+            self.driver.get(fallback_url)
+        else:
+            login_element.click()
 
     def login(self, email, password):
         logging.info("Logging in")
+
         if self.check_elem_exists(By.ID, "challenge-stage", timeout=1):
             self.bypass_cloudflare()
 
         WebDriverWait(self.driver, timeout=15).until(
             EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
-        email_element = WebDriverWait(self.driver, 60).until(EC.presence_of_element_located((By.ID, "email")))
+        email_element = WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.ID, "email")))
         password_element = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
         commit_element = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.NAME, "commit")))
 
+        logging.debug("Filling in login form")
         email_element.click()
         email_element.clear()
         self.driver.execute_script("document.getElementById('email').value='" + email + "'")
@@ -213,7 +231,19 @@ class TeachableDownloader:
 
         commit_element.click()
 
-        self.driver.implicitly_wait(30)
+        # Check for login error due to incorrect credentials
+        logging.debug("Checking for login error")
+        try:
+            error_elements = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.toast, span.text-with-icon"))
+            )
+            for element in error_elements:
+                if "Your email or password is incorrect" in element.text:
+                    logging.error("Login failed: Incorrect email or password.")
+                    return False
+        except TimeoutException:
+            # No error message found, continue
+            pass
 
         # Check for new device challenge
         # input with name otp_code
@@ -239,13 +269,13 @@ class TeachableDownloader:
 
         # https://support.teachable.com/hc/en-us/articles/360058715732-Course-Design-Templates
         logging.info("Picking course downloader")
-        if self.driver.find_elements(By.ID, "__next"):
+        if self.driver.find_elements(By.ID, "__next", timeout=5):
             logging.info('Choosing __next format')
             self.download_course_simple(course_url)
-        elif self.driver.find_elements(By.CLASS_NAME, "course-mainbar"):
+        elif self.driver.find_elements(By.CLASS_NAME, "course-mainbar", timeout=5):
             logging.info('Choosing course-mainbar format')
             self.download_course_classic(course_url)
-        elif self.driver.find_elements(By.CSS_SELECTOR, ".block__curriculum"):
+        elif self.driver.find_elements(By.CSS_SELECTOR, ".block__curriculum", timeout=5):
             logging.info('Choosing .block__curriculum format')
             self.download_course_colossal(course_url)
         else:
