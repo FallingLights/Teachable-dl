@@ -373,9 +373,9 @@ class TeachableDownloader:
             logging.error("Could not save course html: " + str(e), exc_info=self.verbose)
 
         # Get course image
-        image_element = self.driver.find_elements(By.CLASS_NAME, "course-image")
 
-        if image_element:
+        try:
+            image_element = self.driver.find_elements(By.CLASS_NAME, "course-image")
             logging.info("Found course image")
             image_link = image_element[0].get_attribute("src")
             image_link_hd = re.sub(r"/resize=.+?/", "/", image_link)
@@ -399,8 +399,9 @@ class TeachableDownloader:
                 else:
                     # print a message indicating that the image download failed
                     logging.warning("Failed to download image.")
-        else:
-            logging.warning("Could not find course image")
+        except Exception as e:
+            logging.warning("Could not find course image: " + str(e))
+            pass
 
         chapter_idx = 1
         video_list = []
@@ -440,8 +441,10 @@ class TeachableDownloader:
         if self.driver.current_url != course_url:
             self.driver.get(course_url)
 
-        wrap = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".wrap")))
-        heading = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".heading")))
+        wrap = WebDriverWait(self.driver, self.global_timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, ".wrap")))
+        heading = WebDriverWait(self.driver, self.global_timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, ".heading")))
         course_title = heading.text
 
         course_title = clean_string(course_title)
