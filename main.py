@@ -268,13 +268,13 @@ class TeachableDownloader:
 
         # https://support.teachable.com/hc/en-us/articles/360058715732-Course-Design-Templates
         logging.info("Picking course downloader")
-        if self.driver.find_elements(By.ID, "__next", timeout=5):
+        if self.driver.find_elements(By.ID, "__next"):
             logging.info('Choosing __next format')
             self.download_course_simple(course_url)
-        elif self.driver.find_elements(By.CLASS_NAME, "course-mainbar", timeout=5):
+        elif self.driver.find_elements(By.CLASS_NAME, "course-mainbar"):
             logging.info('Choosing course-mainbar format')
             self.download_course_classic(course_url)
-        elif self.driver.find_elements(By.CSS_SELECTOR, ".block__curriculum", timeout=5):
+        elif self.driver.find_elements(By.CSS_SELECTOR, ".block__curriculum"):
             logging.info('Choosing .block__curriculum format')
             self.download_course_colossal(course_url)
         else:
@@ -515,9 +515,9 @@ class TeachableDownloader:
                 self.driver.implicitly_wait(30)
             logging.info("Downloading lecture: " + video["title"])
 
-            logging.info("Disabling autoplay")
-            self.driver.execute_script('var checkbox = document.getElementById("custom-toggle-autoplay");'
-                                       'if (checkbox.checked) {checkbox.click();}')
+            # logging.info("Disabling autoplay")
+            # self.driver.execute_script('var checkbox = document.getElementById("custom-toggle-autoplay");'
+            #                            'if (checkbox.checked) {checkbox.click();}')
 
             try:
                 logging.info("Saving html")
