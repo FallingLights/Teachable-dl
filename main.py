@@ -48,11 +48,10 @@ def truncate_title_to_fit_file_name(title, max_file_name_length=250):
 
 
 class TeachableDownloader:
-    def __init__(self, verbose_arg=False, complete_lecture_arg=False):
+    def __init__(self, verbose_arg=False, complete_lecture_arg=False, user_agent_arg=None):
         self.driver = Driver(uc=True, headed=True)
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0"
-                          " Safari/537.36",
+            "User-Agent": user_agent_arg,
             "Origin": "https://player.hotmart.com",
             "Referer": "https://player.hotmart.com"
         }
@@ -738,10 +737,10 @@ def check_required_args(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Download subtitles from URL')
+    parser = argparse.ArgumentParser(prog='Teachable-Dl', description='Download courses', )
     parser.add_argument("--url", required=False, help='URL of the course')
-    parser.add_argument("--email", required=False, help='Email of the account')
-    parser.add_argument("--password", required=False, help='Password of the account')
+    parser.add_argument("-e", "--email", required=False, help='Email of the account')
+    parser.add_argument("-p", "--password", required=False, help='Password of the account')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Increase verbosity level (repeat for more verbosity)')
     parser.add_argument('--complete-lecture', action='store_true', default=False,
@@ -749,7 +748,10 @@ if __name__ == "__main__":
     parser.add_argument("--login_url", required=False, help='(Optional) URL to teachable SSO login page')
     parser.add_argument("--man_login_url", required=False,
                         help='Login manually and start downloading when this url is reached')
-    parser.add_argument("--file", required=False, help='Path to a text file that contains URLs')
+    parser.add_argument("-f", "--file", required=False, help='Path to a text file that contains URLs')
+    parser.add_argument("--user-agent", required=False, help='User agent to use when downloading videos',
+                        default="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                                "Chrome/116.0.0.0 Safari/537.36")
     args = parser.parse_args()
     verbose = False
     if args.verbose == 0:
@@ -766,7 +768,8 @@ if __name__ == "__main__":
         logging.error("Required arguments are missing. Choose email/password or manual login (man_login_url).")
         exit(1)
 
-    downloader = TeachableDownloader(verbose_arg=verbose, complete_lecture_arg=args.complete_lecture)
+    downloader = TeachableDownloader(verbose_arg=verbose, complete_lecture_arg=args.complete_lecture,
+                                     user_agent_arg=args.user_agent)
     if args.file:
         urls = read_urls_from_file(args.file)
         try:
@@ -787,7 +790,8 @@ if __name__ == "__main__":
             logging.error("URL is required")
             sys.exit(1)
         try:
-            downloader.run(args.url, args.email, args.password, args.login_url, args.man_login_url)
+            downloader.run(course_url=args.url, email=args.email, password=args.password, login_url=args.login_url,
+                           man_login_url=args.man_login_url)
             downloader.clean_up()
             sys.exit(0)
         except KeyboardInterrupt:
