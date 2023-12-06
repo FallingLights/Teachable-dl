@@ -48,7 +48,7 @@ def truncate_title_to_fit_file_name(title, max_file_name_length=250):
 
 
 class TeachableDownloader:
-    def __init__(self, verbose_arg=False, complete_lecture_arg=False, user_agent_arg=None):
+    def __init__(self, verbose_arg=False, complete_lecture_arg=False, user_agent_arg=None, timeout_arg=10):
         self.driver = Driver(uc=True, headed=True)
         self.headers = {
             "User-Agent": user_agent_arg,
@@ -57,10 +57,11 @@ class TeachableDownloader:
         }
         self.verbose = verbose_arg
         self._complete_lecture = complete_lecture_arg
+        self.global_timeout = timeout_arg
 
     def check_elem_exists(self, by, selector, timeout):
         try:
-            WebDriverWait(self.driver, timeout=False).until(
+            WebDriverWait(self.driver, timeout=self.global_timeout).until(
                 EC.presence_of_element_located((by, selector))
             )
         except NoSuchElementException:
@@ -77,7 +78,7 @@ class TeachableDownloader:
             return
         logging.info("Bypassing cloudflare")
         time.sleep(1)
-        if self.check_elem_exists(By.ID, "challenge-stage", timeout=1):
+        if self.check_elem_exists(By.ID, "challenge-stage", timeout=self.global_timeout):
             try:
                 self.driver.find_element(
                     By.ID, "challenge-stage"
@@ -192,11 +193,11 @@ class TeachableDownloader:
     def find_login(self, course_url):
         logging.info("Trying to find login")
 
-        self.driver.implicitly_wait(15)
+        self.driver.implicitly_wait(self.global_timeout)
         self.driver.get(course_url)
 
         try:
-            login_element = WebDriverWait(self.driver, 15).until(
+            login_element = WebDriverWait(self.driver, self.global_timeout).until(
                 EC.presence_of_element_located((By.LINK_TEXT, "Login"))
             )
         except TimeoutException:
@@ -209,15 +210,18 @@ class TeachableDownloader:
     def login(self, email, password):
         logging.info("Logging in")
 
-        if self.check_elem_exists(By.ID, "challenge-stage", timeout=1):
+        if self.check_elem_exists(By.ID, "challenge-stage", timeout=self.global_timeout):
             self.bypass_cloudflare()
 
         WebDriverWait(self.driver, timeout=15).until(
             EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
-        email_element = WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.ID, "email")))
-        password_element = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
-        commit_element = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.NAME, "commit")))
+        email_element = WebDriverWait(self.driver, self.global_timeout).until(
+            EC.presence_of_element_located((By.ID, "email")))
+        password_element = WebDriverWait(self.driver, self.global_timeout).until(
+            EC.presence_of_element_located((By.ID, "password")))
+        commit_element = WebDriverWait(self.driver, self.global_timeout).until(
+            EC.presence_of_element_located((By.NAME, "commit")))
 
         logging.debug("Filling in login form")
         email_element.click()
@@ -233,7 +237,7 @@ class TeachableDownloader:
         # Check for login error due to incorrect credentials
         logging.debug("Checking for login error")
         try:
-            error_elements = WebDriverWait(self.driver, 10).until(
+            error_elements = WebDriverWait(self.driver, self.global_timeout).until(
                 EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.toast, span.text-with-icon"))
             )
             for element in error_elements:
@@ -246,7 +250,7 @@ class TeachableDownloader:
 
         # Check for new device challenge
         # input with name otp_code
-        if self.check_elem_exists(By.NAME, "otp_code", timeout=1):
+        if self.check_elem_exists(By.NAME, "otp_code", timeout=self.global_timeout):
             # wait for user to enter code
             input(
                 "\033[93mWarning: New device challenge\nplease enter the code sent to your email and press enter to "
@@ -260,10 +264,10 @@ class TeachableDownloader:
         if not self.driver.current_url == course_url:
             logging.info("Switching to course page")
             self.driver.get(course_url)
-            if self.check_elem_exists(By.ID, "challenge-stage", timeout=1):
+            if self.check_elem_exists(By.ID, "challenge-stage", timeout=self.global_timeout):
                 self.bypass_cloudflare()
 
-        WebDriverWait(self.driver, timeout=15).until(
+        WebDriverWait(self.driver, timeout=self.global_timeout).until(
             EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
         # https://support.teachable.com/hc/en-us/articles/360058715732-Course-Design-Templates
@@ -284,7 +288,7 @@ class TeachableDownloader:
         logging.info("Detected block course format")
         try:
             logging.info("Getting course title")
-            course_title = WebDriverWait(self.driver, 10).until(
+            course_title = WebDriverWait(self.driver, self.global_timeout).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, ".course__title"))
             ).text
         except Exception as e:
@@ -308,7 +312,7 @@ class TeachableDownloader:
 
         chapter_idx = 1
         video_list = []
-        sections = WebDriverWait(self.driver, 10).until(
+        sections = WebDriverWait(self.driver, self.global_timeout).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".block__curriculum__section"))
         )
 
@@ -346,16 +350,24 @@ class TeachableDownloader:
     def download_course_classic(self, course_url):
         # self.driver.find_elements(By.CLASS_NAME, "course-mainbar")
         logging.info("Detected _mainbar course format")
-        course_title = WebDriverWait(self.driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "body > section > div.course-sidebar > h2"))
-        ).text
+        try:
+            logging.debug("Getting course title")
+            course_title = WebDriverWait(self.driver, self.global_timeout).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "body > section > div.course-sidebar > div > h2"))
+            ).text
+        except Exception as e:
+            logging.warning("Could not get course title, using tab title instead")
+            course_title = self.driver.title
+
+        logging.debug("Found course title: \"" + course_title + "\" starting cleaning of title string")
         course_title = clean_string(course_title)
         logging.info("Found course title: " + course_title)
         course_path = create_folder(course_title)
 
         try:
+            logging.debug("Saving course html")
             output_file = os.path.join(course_path, "course.html")
-            with open(output_file, 'w+') as f:
+            with open(output_file, 'w+', encoding="utf-8") as f:
                 f.write(self.driver.page_source)
         except Exception as e:
             logging.error("Could not save course html: " + str(e), exc_info=self.verbose)
@@ -450,8 +462,9 @@ class TeachableDownloader:
             logging.error("Could not save course html: " + str(e), exc_info=self.verbose)
 
         # Download course image
-        image_element = self.driver.find_element(By.XPATH, "//*[@id=\"__next\"]/div/div/div[2]/div/div[1]/img")
-        if image_element:
+        try:
+            logging.info("Downloading course image")
+            image_element = self.driver.find_element(By.XPATH, "//*[@id=\"__next\"]/div/div/div[2]/div/div[1]/img")
             logging.info("Found course image")
             image_link = image_element.get_attribute("src")
             # Save image
@@ -467,8 +480,9 @@ class TeachableDownloader:
             except Exception as e:
                 # print a message indicating that the image download failed
                 logging.warning("Failed to download image:" + str(e))
-        else:
-            logging.warning("Image not found.")
+        except Exception as e:
+            logging.warning("Could not find course image: " + str(e))
+            pass
 
         chapter_idx = 0
         video_list = []
@@ -482,7 +496,7 @@ class TeachableDownloader:
             logging.info("Found chapter: " + chapter_title)
 
             try:
-                not_available_element = WebDriverWait(slim_section, 0.1).until(
+                not_available_element = WebDriverWait(slim_section, self.global_timeout).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, ".drip-tag")))
                 logging.warning('Chapter "%s" not available, skipping', chapter_title)
                 continue
@@ -512,7 +526,7 @@ class TeachableDownloader:
             if self.driver.current_url != video["link"]:
                 logging.info("Navigating to lecture: " + video["title"])
                 self.driver.get(video["link"])
-                self.driver.implicitly_wait(30)
+                self.driver.implicitly_wait(self.global_timeout)
             logging.info("Downloading lecture: " + video["title"])
 
             # logging.info("Disabling autoplay")
@@ -752,6 +766,7 @@ if __name__ == "__main__":
     parser.add_argument("--user-agent", required=False, help='User agent to use when downloading videos',
                         default="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
                                 "Chrome/116.0.0.0 Safari/537.36")
+    parser.add_argument("-t", "--timeout", required=False, help='Timeout for selenium driver', default=10)
     args = parser.parse_args()
     verbose = False
     if args.verbose == 0:
@@ -769,7 +784,7 @@ if __name__ == "__main__":
         exit(1)
 
     downloader = TeachableDownloader(verbose_arg=verbose, complete_lecture_arg=args.complete_lecture,
-                                     user_agent_arg=args.user_agent)
+                                     user_agent_arg=args.user_agent, timeout_arg=args.timeout)
     if args.file:
         urls = read_urls_from_file(args.file)
         try:
