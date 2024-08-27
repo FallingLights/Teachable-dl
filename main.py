@@ -547,6 +547,14 @@ class TeachableDownloader:
                 self.download_attachments(video["link"], video["title"], video["idx"], video["download_path"])
             except Exception as e:
                 logging.warning("Could not download attachments: " + video["title"] + " cause: " + str(e))
+            
+            try:
+                logging.debug("Trying to download video as an attachment")
+                if self.download_video_file(video["title"], video["idx"], video["download_path"]):
+                    continue
+
+            except Exception as e:
+                logging.debug("Could not download video as an attachment: " + video["title"] + " cause: " + str(e))
 
             video_iframes = self.driver.find_elements(By.XPATH, "//iframe[starts-with(@data-testid, 'embed-player')]")
 
@@ -681,7 +689,65 @@ class TeachableDownloader:
                 except Exception as e:
                     logging.warning("Could not download subtitle: " + title + " cause: " + str(e))
                 logging.info("Downloaded subtitle: " + subtitle_filename)
+                
+    def download_video_file(self, title, video_index, output_path, timeout=-1):
+        video_title = "{:02d}-{}".format(video_index, title)
 
+        # Grab the video attachments type video
+        video_attachment = self.driver.find_element(By.CLASS_NAME, "lecture-attachment-type-video")
+
+        if not video_attachment:
+            logging.debug(f"No video attachment found for lecture: {title}")
+            return False
+
+        video_link = video_attachment.find_element(By.TAG_NAME, "a")
+
+        if not video_link:
+            logging.debug(f"No video link found for lecture: {title}")
+            return False
+
+        # Set the download directory for this file
+        self.driver.execute_cdp_cmd("Page.setDownloadBehavior", {
+            "behavior": "allow",
+            "downloadPath": output_path
+        })
+        # Get list of files before download
+        files_before_download = set(os.listdir(output_path))
+
+        # Click the link to trigger download
+        video_link.click()
+
+        # Wait for download to complete
+        start_time = time.time()
+        while True:
+            files_after_download = set(os.listdir(output_path))
+
+            # Find new files
+            new_files = files_after_download - files_before_download
+
+            if len(new_files) == 1 and not list(new_files)[0].endswith('.crdownload'):
+                break
+            
+            if timeout > 0 and (time.time() - start_time) > timeout:
+                logging.warning(f"Download timeout for lecture: {title}")
+                return False
+        
+            time.sleep(1)
+
+        latest_file = os.path.join(output_path, list(new_files)[0])
+                
+        # Determine the file extension
+        _, extension = os.path.splitext(latest_file)
+        
+        # Create the new filename
+        new_filename = f"{video_title}{extension}"
+        new_filepath = os.path.join(output_path, new_filename)
+        
+        # Rename the file
+        os.rename(latest_file, new_filepath)
+        logging.info(f"Downloaded video file {new_filename}")
+        return True
+    
     def download_attachments(self, link, title, video_index, output_path):
         video_title = "{:02d}-{}".format(video_index, title)
 
