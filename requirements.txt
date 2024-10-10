@@ -1,5 +1,4 @@
-selenium>=4.11.2
-wget>=3.2
-requests>=2.31.0
-yt-dlp
-seleniumbase>=4.20.8
+selenium==4.14.0
+wget==3.2
+requests==2.32.2
+seleniumbase==4.20.8
