@@ -49,7 +49,7 @@ def truncate_title_to_fit_file_name(title, max_file_name_length=250):
 
 class TeachableDownloader:
     def __init__(self, verbose_arg=False, complete_lecture_arg=False, user_agent_arg=None, timeout_arg=10):
-        self.driver = Driver(uc=True, headed=True)
+        self.driver = Driver(uc=True, headed=True, external_pdf=True)
         self.headers = {
             "User-Agent": user_agent_arg,
             "Origin": "https://player.hotmart.com",
@@ -706,35 +706,11 @@ class TeachableDownloader:
             logging.debug(f"No video link found for lecture: {title}")
             return False
 
-        # Set the download directory for this file
-        self.driver.execute_cdp_cmd("Page.setDownloadBehavior", {
-            "behavior": "allow",
-            "downloadPath": output_path
-        })
-        # Get list of files before download
-        files_before_download = set(os.listdir(output_path))
-
-        # Click the link to trigger download
-        video_link.click()
-
-        # Wait for download to complete
-        start_time = time.time()
-        while True:
-            files_after_download = set(os.listdir(output_path))
-
-            # Find new files
-            new_files = files_after_download - files_before_download
-
-            if len(new_files) == 1 and not list(new_files)[0].endswith('.crdownload'):
-                break
-            
-            if timeout > 0 and (time.time() - start_time) > timeout:
-                logging.warning(f"Download timeout for lecture: {title}")
-                return False
-        
-            time.sleep(1)
-
-        latest_file = os.path.join(output_path, list(new_files)[0])
+        latest_file = self.webdriver_download(
+            output_path=output_path,
+            trigger_download=lambda: video_link.click(),
+            timeout=timeout
+        )
                 
         # Determine the file extension
         _, extension = os.path.splitext(latest_file)
@@ -751,15 +727,13 @@ class TeachableDownloader:
     def download_attachments(self, link, title, video_index, output_path):
         video_title = "{:02d}-{}".format(video_index, title)
 
+        output_path = os.path.join(output_path, video_title)
+
         # Grab the video attachments type file
         video_attachments = self.driver.find_elements(By.CLASS_NAME, "lecture-attachment-type-file")
         # Get all links from the video attachments
-
         if video_attachments:
             video_links = video_attachments[0].find_elements(By.TAG_NAME, "a")
-
-            output_path = os.path.join(output_path, video_title)
-            os.makedirs(output_path, exist_ok=True)
 
             # Get href attribute from the first link
             if video_links:
@@ -768,9 +742,23 @@ class TeachableDownloader:
                     file_name = video_link.text
                     logging.info("Downloading attachment: " + file_name + " for video: " + title)
                     # Download file and save the file in output_path directory
+                    os.makedirs(output_path, exist_ok=True)
                     wget.download(link, out=output_path)
         else:
-            logging.warning("No attachments found for video: " + title)
+            logging.info("No video attachments found for video: " + title)
+
+        # Grab the video attachments type pdf_embed
+        pdf_embed_attachments = self.driver.find_elements(By.CLASS_NAME, "lecture-attachment-type-pdf_embed")
+        if pdf_embed_attachments:
+            for pdf_embed in pdf_embed_attachments:
+                pdf_link = pdf_embed.find_element(By.TAG_NAME, "a")
+                pdf_file_name = pdf_link.get_attribute("data-x-origin-download-name")
+                logging.info("Downloading PDF attachment: " + pdf_file_name + " for video: " + title)
+                # Use the webdriver to download the PDF
+                os.makedirs(output_path, exist_ok=True)
+                self.webdriver_download(output_path, lambda: pdf_link.click(), pdf_file_name)
+        else:
+            logging.info("No PDF attachments found for video: " + title)
 
     def save_webpage_as_html(self, title, video_index, output_path):
         output_file = os.path.join(output_path, "{:02d}-{}.html".format(video_index, title))
@@ -782,6 +770,43 @@ class TeachableDownloader:
         output_file_pdf = os.path.join(output_path, "{:02d}-{}.pdf".format(video_index, title))
         self.driver.save_print_page(output_file_pdf)
         logging.info("Saved webpage as pdf: " + output_file_pdf)
+
+    def webdriver_download(self, output_path, trigger_download, expected_output_file_name=None,timeout=-1):
+        # Set the download directory for this file
+        self.driver.execute_cdp_cmd("Page.setDownloadBehavior", {
+            "behavior": "allow",
+            "downloadPath": output_path
+        })
+        # Get list of files before download
+        files_before_download = set(os.listdir(output_path))
+
+        # Click the link to trigger download
+        trigger_download()
+
+        # Wait for download to complete
+        start_time = time.time()
+        while True:
+            files_after_download = set(os.listdir(output_path))
+
+            if expected_output_file_name:
+                if expected_output_file_name in files_after_download:
+                    logging.debug(f"Expected file {expected_output_file_name} found.")
+                    return os.path.join(output_path, expected_output_file_name)
+            else:
+                logging.debug("No expected file name provided, checking for new files.")
+                # Find new files
+                new_files = files_after_download - files_before_download
+
+                if len(new_files) == 1 and not list(new_files)[0].endswith('.crdownload'):
+                    logging.debug(f"New file found: {list(new_files)[0]}")
+                    return os.path.join(output_path, list(new_files)[0])
+            
+            if timeout > 0 and (time.time() - start_time) > timeout:
+                logging.warning(f"Download timeout")
+                return False
+        
+            time.sleep(1)
+
 
     def clean_up(self):
         logging.info("Cleaning up")
