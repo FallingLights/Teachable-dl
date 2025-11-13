@@ -185,10 +185,49 @@ class TeachableDownloader:
 
     def construct_sign_in_url(self, course_url):
         parsed_url = urlparse(course_url)
+        logging.info(f"Current Parsed Sign in URL {parsed_url}")
         # Replace the path with '/sign_in'
         sign_in_path = '/sign_in'
         fallback_url = urlunparse((parsed_url.scheme, parsed_url.netloc, sign_in_path, '', '', ''))
+        logging.info(f"Current FALLBACK Sign in URL {fallback_url}")
         return fallback_url
+
+    def force_sign_in_url_password(self):
+        logging.info("Checking if redirected to OTP login page")
+        current_url = self.driver.current_url
+        parsed_url = urlparse(current_url)
+
+        # Pattern: /secure/{courseID}/identity/login/otp
+        if re.search(r"/secure/\d+/identity/login/otp", parsed_url.path):
+            logging.info(f"Currently at OTP login page: {current_url}")
+
+            try:
+                # Try to click the "log in with a password" link if it exists
+                password_link = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.ID, "login-with-password-link"))
+                )
+                logging.info("Found 'log in with a password' link, clicking it now.")
+                password_link.click()
+                return True
+
+            except TimeoutException:
+                logging.warning("'Login with password' link not found — constructing fallback password URL.")
+
+                # Extract courseID from URL path
+                match = re.search(r"/secure/(\d+)/identity/login/otp", parsed_url.path)
+                if match:
+                    course_id = match.group(1)
+                    password_url = f"{parsed_url.scheme}://{parsed_url.netloc}/secure/{course_id}/identity/login/password?force=true"
+                    logging.info(f"Navigating manually to password login: {password_url}")
+                    self.driver.get(password_url)
+                    return True
+                else:
+                    logging.error("Failed to extract course ID from OTP URL path.")
+                    return False
+        else:
+            logging.info("Not on an OTP login page — no action required.")
+            return False
+
 
     def find_login(self, course_url):
         logging.info("Trying to find login")
@@ -204,12 +243,12 @@ class TeachableDownloader:
             logging.warning("Login button not found, navigating to fallback URL")
             fallback_url = self.construct_sign_in_url(course_url)
             self.driver.get(fallback_url)
+            self.force_sign_in_url_password()
         else:
             login_element.click()
 
     def login(self, email, password):
         logging.info("Logging in")
-
         if self.check_elem_exists(By.ID, "challenge-stage", timeout=self.global_timeout):
             self.bypass_cloudflare()
 
