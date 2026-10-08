@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import logging
 import os
@@ -104,30 +105,21 @@ class TeachableDownloader:
             logging.info("No need to bypass cloudflare")
             return
 
-    def run(self, course_url, email, password, login_url, man_login_url):
+    def run(self, course_url, email, password, login_url, manual_login=False):
         logging.info("Starting login")
 
-        if man_login_url is None:
-            # Check if login_url is not set
-            if login_url is None:
-                try:
-                    self.find_login(course_url)
-                except Exception as e:
-                    logging.error("Could not find login: " + str(e), exc_info=self.verbose)
-            else:
-                self.driver.get(login_url)
-
+        if manual_login:
+            self.wait_for_manual_login(course_url)
+        else:
             try:
+                if login_url:
+                    self.driver.get(login_url)
+                else:
+                    self.go_to_login_page(course_url)
                 self.login(email, password)
             except Exception as e:
                 logging.error("Could not login: " + str(e), exc_info=self.verbose)
                 return
-        else:
-            self.driver.get(course_url)
-            while self.driver.current_url != man_login_url:
-                time.sleep(3)
-                logging.info("Waiting for user to navigate to url: " + man_login_url)
-                logging.info("Current url: " + self.driver.current_url)
 
         logging.info("Starting download of course: " + course_url)
         try:
@@ -135,53 +127,85 @@ class TeachableDownloader:
         except Exception as e:
             logging.error("Could not download course: " + course_url + " cause: " + str(e))
 
-    def run_batch(self, url_array, email, password, login_url, man_login_url):
+    def run_batch(self, entries, email, password, login_url, manual_login=False):
         """
-        This method handles batch downloading of courses. It navigates to the given URLs, logs in if necessary,
-        and initiates the download process for each course.
+        This method handles batch downloading of courses. Courses are grouped by site and account, and each
+        group is logged in to once before its courses are downloaded.
 
-        :param url_array: List[str]
-            An array of URLs pointing to the courses that need to be downloaded.
+        :param entries: List[dict]
+            Course entries from read_batch_file(), each with "url", "email", "password" and "login_url" keys.
+            Missing values fall back to the email, password and login_url arguments below.
         :param email: str
-            The email address used to log in to the platform.
+            The default email address used to log in to the platform.
         :param password: str
-            The password associated with the provided email address.
+            The default password associated with the provided email address.
         :param login_url: str
-            The URL of the login page. If not provided, manual login is assumed.
-        :param man_login_url: str
-            The URL of the page to navigate to after manual login. This parameter is optional.
-            If provided, the script will wait until the user has manually navigated to this URL
-            before starting the download process.
+            The default URL of the login page. If not provided, it is found from each group's first course URL.
+        :param manual_login: bool
+            If True, the user logs in themselves in the browser window for each group and the download
+            starts automatically once they are logged in.
         :return: None
         """
-        logging.info("Starting login")
+        if not entries:
+            logging.error("No courses to download")
+            return
 
-        if man_login_url is None:
-            # Check if login_url is not set
-            if login_url is not None:
-                self.driver.get(login_url)
-            else:
-                logging.error("Login url is not set")
-                return
+        # Group courses by (site, account), keeping the order they first appear in
+        groups = {}
+        for entry in entries:
+            entry_email = entry["email"] or email
+            group = groups.setdefault((urlparse(entry["url"]).netloc, entry_email), {
+                "password": entry["password"] or password,
+                "login_url": entry["login_url"] or login_url,
+                "urls": [],
+            })
+            group["urls"].append(entry["url"])
+
+        current_email = None
+        for (domain, group_email), group in groups.items():
+            urls = group["urls"]
+            logging.info(f"Starting login for {domain} ({len(urls)} course(s))")
+
+            # Every school signs in through sso.teachable.com, so the previous account's session
+            # would carry over; clear cookies for all domains when switching accounts
+            if current_email is not None and group_email != current_email:
+                logging.info("Switching account, clearing cookies")
+                self.driver.execute_cdp_cmd("Network.clearBrowserCookies", {})
+            current_email = group_email
 
             try:
-                self.login(email, password)
+                if manual_login:
+                    self.wait_for_manual_login(urls[0])
+                else:
+                    self.login_if_needed(urls[0], group_email, group["password"], group["login_url"])
             except Exception as e:
-                logging.error("Could not login: " + str(e), exc_info=self.verbose)
-                return
+                logging.error(f"Could not login to {domain}: " + str(e), exc_info=self.verbose)
+                continue
+
+            logging.info(f"Running batch download of courses for {domain}")
+            for url in urls:
+                try:
+                    self.pick_course_downloader(url)
+                except Exception as e:
+                    logging.error("Could not download course: " + url + " cause: " + str(e))
+
+    def login_if_needed(self, course_url, email, password, login_url):
+        self.driver.get(course_url)
+        if self.driver.find_elements(By.ID, "challenge-stage"):
+            self.bypass_cloudflare()
+
+        if not self.logged_out_reason():
+            logging.info("Already logged in, skipping login")
+            return
+
+        if not email or not password:
+            raise ValueError("no email/password given for this course")
+
+        if login_url:
+            self.driver.get(login_url)
         else:
-            self.driver.get(url_array[0])
-            while self.driver.current_url != man_login_url:
-                time.sleep(3)
-                logging.info("Waiting for user to navigate to url: " + man_login_url)
-                logging.info("Current url: " + self.driver.current_url)
-
-        logging.info("Running batch download of courses ")
-        for url in url_array:
-            try:
-                self.pick_course_downloader(url)
-            except Exception as e:
-                logging.error("Could not download course: " + url + " cause: " + str(e))
+            self.go_to_login_page(course_url)
+        self.login(email, password)
 
     def construct_sign_in_url(self, course_url):
         parsed_url = urlparse(course_url)
@@ -190,23 +214,59 @@ class TeachableDownloader:
         fallback_url = urlunparse((parsed_url.scheme, parsed_url.netloc, sign_in_path, '', '', ''))
         return fallback_url
 
-    def find_login(self, course_url):
+    def go_to_login_page(self, course_url):
         logging.info("Trying to find login")
-
-        self.driver.implicitly_wait(self.global_timeout)
         self.driver.get(course_url)
 
+        # Step 1: course site -> Login link (falls back to constructed sign-in URL)
         try:
-            login_element = WebDriverWait(self.driver, self.global_timeout).until(
-                EC.presence_of_element_located((By.LINK_TEXT, "Login"))
+            self.follow_link(By.LINK_TEXT, "Login")
+        except TimeoutException:
+            logging.warning("Login link not found, navigating to fallback URL")
+            self.driver.get(self.construct_sign_in_url(course_url))
+
+        # Step 2: Teachable SSO lands on the OTP form first; switch to the password form
+        self.switch_to_password_login()
+
+    def switch_to_password_login(self):
+        # Step 1 redirects through sso.teachable.com, so wait for it to land on a login form
+        try:
+            WebDriverWait(self.driver, self.global_timeout).until(
+                EC.url_matches(r"/identity/login/(otp|password)")
             )
         except TimeoutException:
-            logging.warning("Login button not found, navigating to fallback URL")
-            fallback_url = self.construct_sign_in_url(course_url)
-            self.driver.get(fallback_url)
-        else:
-            login_element.click()
+            logging.info("Not on an SSO login page - no action required")
+            return
 
+        parsed_url = urlparse(self.driver.current_url)
+        # Pattern: /secure/{schoolID}/identity/login/otp
+        match = re.search(r"(/secure/\d+/identity/login)/otp", parsed_url.path)
+        if not match:
+            logging.info("Already on the password login page")
+            return
+
+        try:
+            self.follow_link(By.ID, "login-with-password-link")
+            return
+        except TimeoutException:
+            logging.warning("'Log in with a password' link not found - constructing password login URL")
+
+        password_login_url = urlunparse(
+            (parsed_url.scheme, parsed_url.netloc, match.group(1) + "/password", "", "force=true", "")
+        )
+        logging.info(f"Switching from OTP to password login: {password_login_url}")
+        self.driver.get(password_login_url)
+
+    def follow_link(self, by, selector, timeout=None):
+        element = WebDriverWait(self.driver, timeout or self.global_timeout).until(
+            EC.presence_of_element_located((by, selector))
+        )
+        href = element.get_attribute("href")
+        if href and not href.endswith("#"):
+            self.driver.get(href)
+        else:
+            element.click()
+    
     def login(self, email, password):
         logging.info("Logging in")
 
@@ -226,38 +286,97 @@ class TeachableDownloader:
         logging.debug("Filling in login form")
         email_element.click()
         email_element.clear()
-        self.driver.execute_script("document.getElementById('email').value='" + email + "'")
+        self.driver.execute_script("arguments[0].value = arguments[1]", email_element, email)
 
         password_element.click()
         password_element.clear()
-        self.driver.execute_script("document.getElementById('password').value='" + password + "'")
+        self.driver.execute_script("arguments[0].value = arguments[1]", password_element, password)
 
         commit_element.click()
 
+        # Wait for whichever outcome comes first: redirect away from login, error toast, or new device challenge
+        logging.debug("Waiting for login result")
+        WebDriverWait(self.driver, self.global_timeout).until(EC.any_of(
+            EC.none_of(EC.url_contains("/identity/login")),
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.toast, span.text-with-icon")),
+            EC.presence_of_element_located((By.NAME, "otp_code")),
+        ))
+
         # Check for login error due to incorrect credentials
-        logging.debug("Checking for login error")
-        try:
-            error_elements = WebDriverWait(self.driver, self.global_timeout).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.toast, span.text-with-icon"))
-            )
-            for element in error_elements:
-                if "Your email or password is incorrect" in element.text:
-                    logging.error("Login failed: Incorrect email or password.")
-                    return False
-        except TimeoutException:
-            # No error message found, continue
-            pass
+        for element in self.driver.find_elements(By.CSS_SELECTOR, "div.toast, span.text-with-icon"):
+            if "Your email or password is incorrect" in element.text:
+                raise RuntimeError("Incorrect email or password")
 
         # Check for new device challenge
-        # input with name otp_code
-        if self.check_elem_exists(By.NAME, "otp_code", timeout=self.global_timeout):
+        if self.driver.find_elements(By.NAME, "otp_code"):
             # wait for user to enter code
             input(
                 "\033[93mWarning: New device challenge\nplease enter the code sent to your email and press enter to "
                 "continue\033[0m"
             )
         logging.info("Logged in, switching to course page")
-        time.sleep(3)
+
+    def logged_out_reason(self):
+        # A sign-in form (email + password together, not just a stray "email"
+        # input elsewhere on the page, e.g. a newsletter signup), a login/OTP
+        # URL, a "Login" link on the course page, or the "content locked"
+        # message all mean we're not authenticated yet. Returns why, or None
+        # if none of that applies.
+        try:
+            current_url = self.driver.current_url
+            if self.driver.find_elements(By.ID, "email") and self.driver.find_elements(By.ID, "password"):
+                return "sign-in form (email + password fields) present"
+            if re.search(r"/sign_in|/identity/login", current_url):
+                return "current URL looks like a sign-in/OTP page"
+            if self.driver.find_elements(By.LINK_TEXT, "Login"):
+                return "'Login' link present on the page"
+            if "content locked" in self.driver.page_source.lower():
+                return "'content locked' message present"
+        except Exception as e:
+            logging.warning("logged_out_reason: could not inspect page: " + str(e))
+            return "could not read browser state (" + str(e) + ")"
+        return None
+
+    def wait_for_manual_login(self, start_url):
+        logging.info("Manual login mode: waiting for you to log in.")
+        if self.driver.current_url != start_url:
+            self.driver.get(start_url)
+
+        print(
+            "\033[93mManual login mode: please log in yourself in the browser window (enter your email/password "
+            "and solve the captcha if one appears). The download will start automatically once you're logged "
+            "in.\033[0m"
+        )
+
+        poll_count = 0
+        while True:
+            logging.debug(f"wait_for_manual_login: poll #{poll_count + 1}")
+            reason = self.logged_out_reason()
+            if not reason:
+                break
+            poll_count += 1
+            if poll_count % 5 == 0:
+                logging.info(f"Still waiting ({reason}); current url: {self.driver.current_url}")
+            time.sleep(3)
+
+        # logged_out_reason() can return None a moment before the browser
+        # finishes redirecting to the final course page, so wait for the URL
+        # to stop changing, then force a clean reload - otherwise the
+        # downloader can grab elements from a DOM that's still mid-navigation
+        # and hit stale element errors.
+        previous_url = None
+        current_url = self.driver.current_url
+        for _ in range(self.global_timeout * 2):
+            if current_url == previous_url:
+                break
+            previous_url = current_url
+            time.sleep(0.5)
+            current_url = self.driver.current_url
+
+        logging.info("Manual login detected, reloading course page before starting download.")
+        self.driver.get(start_url)
+        WebDriverWait(self.driver, self.global_timeout).until(
+            EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
     def pick_course_downloader(self, course_url):
         # Check if we are already on the course page
@@ -791,30 +910,62 @@ class TeachableDownloader:
             os.remove("cookies.txt")
 
 
-def read_urls_from_file(file_path):
-    urls = []
+BATCH_FILE_FIELDS = ("url", "email", "password", "login_url")
+
+
+def read_batch_file(file_path):
+    """
+    Reads course entries from a batch file, in one of two formats.
+
+    Plain text, one course URL per line (credentials come from --email/--password):
+
+        https://www.school-a.com/p/course-one
+        https://www.school-a.com/p/course-two
+
+    CSV with a header row. Only the url column is required; empty values fall back to
+    --email, --password and --login_url, and login_url is found automatically if still empty.
+    Quote any value that contains a comma:
+
+        url,email,password,login_url
+        https://www.school-a.com/p/course-one,me@example.com,my-password,
+        https://www.school-a.com/p/course-two,me@example.com,my-password,
+        https://www.school-b.com/courses/x,other@example.com,"pass,with,commas",https://sso.teachable.com/secure/1234567/identity/login/password?force=true
+
+    In both formats, blank lines and lines starting with '#' are skipped.
+
+    Returns a list of dicts with url, email, password and login_url keys; missing values are None.
+    """
     try:
-        with open(file_path, 'r') as file:
-            urls = file.read().splitlines()
+        with open(file_path, 'r', newline='') as file:
+            lines = [line for line in file.read().splitlines()
+                     if line.strip() and not line.lstrip().startswith('#')]
     except FileNotFoundError:
         logging.error(f"File not found: {file_path}")
-    except IOError as e:
-        logging.error(f"IOError reading file: {file_path}. Error: {str(e)}")
-    except Exception as e:
-        logging.error(f"Unexpected error reading file: {file_path}. Error: {str(e)}")
+        return []
+    except OSError as e:
+        logging.error(f"Could not read file: {file_path}. Error: {str(e)}")
+        return []
 
-    if urls:
-        logging.info(f"Successfully read {len(urls)} URLs from file: {file_path}")
+    if lines and lines[0].split(',')[0].strip().lower() == 'url':
+        rows = csv.DictReader(lines, skipinitialspace=True)
+        entries = [{field: (row.get(field) or '').strip() or None for field in BATCH_FILE_FIELDS} for row in rows]
     else:
-        logging.warning(f"No URLs found in file: {file_path}")
+        entries = [dict.fromkeys(BATCH_FILE_FIELDS) | {"url": line.strip()} for line in lines]
+    entries = [entry for entry in entries if entry["url"]]
 
-    return urls
+    if entries:
+        logging.info(f"Successfully read {len(entries)} courses from file: {file_path}")
+    else:
+        logging.warning(f"No courses found in file: {file_path}")
+
+    return entries
 
 
 def check_required_args(args):
-    if args.email and args.password:
+    # A batch file can carry its own credentials per course
+    if args.manual_login or args.file:
         return True
-    elif args.man_login_url:
+    if args.email and args.password:
         return True
     return False
 
@@ -829,13 +980,15 @@ if __name__ == "__main__":
     parser.add_argument('--complete-lecture', action='store_true', default=False,
                         help='Complete the lecture after downloading')
     parser.add_argument("--login_url", required=False, help='(Optional) URL to teachable SSO login page')
-    parser.add_argument("--man_login_url", required=False,
-                        help='Login manually and start downloading when this url is reached')
-    parser.add_argument("-f", "--file", required=False, help='Path to a text file that contains URLs')
+    parser.add_argument("-ml", "--manual-login", action='store_true', default=False,
+                        help='Log in yourself in the browser (email/password and any captcha); '
+                             'the download starts automatically once you are logged in')
+    parser.add_argument("-f", "--file", required=False, help='Path to a text file with one URL per line, or a CSV file with a '
+                             'url,email,password,login_url header')
     parser.add_argument("--user-agent", required=False, help='User agent to use when downloading videos',
                         default="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
                                 "Chrome/116.0.0.0 Safari/537.36")
-    parser.add_argument("-t", "--timeout", required=False, help='Timeout for selenium driver', default=10)
+    parser.add_argument("-t", "--timeout", required=False, help='Timeout for selenium driver', type=int, default=10)
     args = parser.parse_args()
     verbose = False
     if args.verbose == 0:
@@ -849,15 +1002,15 @@ if __name__ == "__main__":
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
 
     if not check_required_args(args):
-        logging.error("Required arguments are missing. Choose email/password or manual login (man_login_url).")
+        logging.error("Required arguments are missing. Choose email/password or --manual-login.")
         exit(1)
 
     downloader = TeachableDownloader(verbose_arg=verbose, complete_lecture_arg=args.complete_lecture,
                                      user_agent_arg=args.user_agent, timeout_arg=args.timeout)
     if args.file:
-        urls = read_urls_from_file(args.file)
+        entries = read_batch_file(args.file)
         try:
-            downloader.run_batch(urls, args.email, args.password, args.login_url, args.man_login_url)
+            downloader.run_batch(entries, args.email, args.password, args.login_url, manual_login=args.manual_login)
             downloader.clean_up()
             sys.exit(0)
         except KeyboardInterrupt:
@@ -875,7 +1028,7 @@ if __name__ == "__main__":
             sys.exit(1)
         try:
             downloader.run(course_url=args.url, email=args.email, password=args.password, login_url=args.login_url,
-                           man_login_url=args.man_login_url)
+                           manual_login=args.manual_login)
             downloader.clean_up()
             sys.exit(0)
         except KeyboardInterrupt:
